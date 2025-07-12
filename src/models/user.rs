@@ -14,7 +14,7 @@ pub struct User {
     pub age: i32,
     #[serde(skip_serializing)] // Nunca serializar a senha
     pub password_hash: String,
-    pub role: Option<String>,  // Role do usuário (admin, user, etc.)
+    pub role: Option<String>, // Role do usuário (admin, user, etc.)
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
 }
@@ -87,4 +87,167 @@ pub struct LoginDto {
 
     #[validate(length(min = 1, message = "Password is required"))]
     pub password: String,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use validator::Validate;
+
+    #[test]
+    fn test_user_response_from_user() {
+        let user = User {
+            id: Uuid::new_v4(),
+            name: "Test User".to_string(),
+            email: "test@example.com".to_string(),
+            age: 25,
+            password_hash: "hashed_password".to_string(),
+            role: Some("user".to_string()),
+            created_at: Utc::now(),
+            updated_at: Utc::now(),
+        };
+
+        let response = UserResponse::from(user.clone());
+
+        assert_eq!(response.id, user.id);
+        assert_eq!(response.name, user.name);
+        assert_eq!(response.email, user.email);
+        assert_eq!(response.age, user.age);
+        assert_eq!(response.role, user.role);
+        // Note: password_hash should not be in UserResponse
+    }
+
+    #[test]
+    fn test_create_user_dto_validation_valid() {
+        let dto = CreateUserDto {
+            name: "Valid Name".to_string(),
+            email: "valid@example.com".to_string(),
+            age: 25,
+            password: "validpassword".to_string(),
+        };
+
+        assert!(dto.validate().is_ok());
+    }
+
+    #[test]
+    fn test_create_user_dto_validation_invalid_email() {
+        let dto = CreateUserDto {
+            name: "Valid Name".to_string(),
+            email: "invalid-email".to_string(),
+            age: 25,
+            password: "validpassword".to_string(),
+        };
+
+        let validation_result = dto.validate();
+        assert!(validation_result.is_err());
+
+        let errors = validation_result.unwrap_err();
+        assert!(errors.field_errors().contains_key("email"));
+    }
+
+    #[test]
+    fn test_create_user_dto_validation_short_name() {
+        let dto = CreateUserDto {
+            name: "A".to_string(), // Too short
+            email: "valid@example.com".to_string(),
+            age: 25,
+            password: "validpassword".to_string(),
+        };
+
+        let validation_result = dto.validate();
+        assert!(validation_result.is_err());
+
+        let errors = validation_result.unwrap_err();
+        assert!(errors.field_errors().contains_key("name"));
+    }
+
+    #[test]
+    fn test_create_user_dto_validation_invalid_age() {
+        let dto = CreateUserDto {
+            name: "Valid Name".to_string(),
+            email: "valid@example.com".to_string(),
+            age: 200, // Too high
+            password: "validpassword".to_string(),
+        };
+
+        let validation_result = dto.validate();
+        assert!(validation_result.is_err());
+
+        let errors = validation_result.unwrap_err();
+        assert!(errors.field_errors().contains_key("age"));
+    }
+
+    #[test]
+    fn test_create_user_dto_validation_short_password() {
+        let dto = CreateUserDto {
+            name: "Valid Name".to_string(),
+            email: "valid@example.com".to_string(),
+            age: 25,
+            password: "123".to_string(), // Too short
+        };
+
+        let validation_result = dto.validate();
+        assert!(validation_result.is_err());
+
+        let errors = validation_result.unwrap_err();
+        assert!(errors.field_errors().contains_key("password"));
+    }
+
+    #[test]
+    fn test_update_user_dto_validation_valid() {
+        let dto = UpdateUserDto {
+            name: Some("Updated Name".to_string()),
+            email: Some("updated@example.com".to_string()),
+        };
+
+        assert!(dto.validate().is_ok());
+    }
+
+    #[test]
+    fn test_update_user_dto_validation_none_values() {
+        let dto = UpdateUserDto {
+            name: None,
+            email: None,
+        };
+
+        assert!(dto.validate().is_ok());
+    }
+
+    #[test]
+    fn test_login_dto_validation_valid() {
+        let dto = LoginDto {
+            email: "user@example.com".to_string(),
+            password: "password123".to_string(),
+        };
+
+        assert!(dto.validate().is_ok());
+    }
+
+    #[test]
+    fn test_login_dto_validation_invalid_email() {
+        let dto = LoginDto {
+            email: "invalid-email".to_string(),
+            password: "password123".to_string(),
+        };
+
+        let validation_result = dto.validate();
+        assert!(validation_result.is_err());
+
+        let errors = validation_result.unwrap_err();
+        assert!(errors.field_errors().contains_key("email"));
+    }
+
+    #[test]
+    fn test_login_dto_validation_empty_password() {
+        let dto = LoginDto {
+            email: "user@example.com".to_string(),
+            password: "".to_string(),
+        };
+
+        let validation_result = dto.validate();
+        assert!(validation_result.is_err());
+
+        let errors = validation_result.unwrap_err();
+        assert!(errors.field_errors().contains_key("password"));
+    }
 }

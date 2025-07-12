@@ -9,7 +9,7 @@ use validator::Validate;
 pub struct LoginRequest {
     #[validate(email(message = "Email deve ter formato válido"))]
     pub email: String,
-    
+
     #[validate(length(min = 6, message = "Senha deve ter pelo menos 6 caracteres"))]
     pub password: String,
 }
@@ -19,13 +19,13 @@ pub struct LoginRequest {
 pub struct RegisterRequest {
     #[validate(length(min = 2, max = 100, message = "Nome deve ter entre 2 e 100 caracteres"))]
     pub name: String,
-    
+
     #[validate(email(message = "Email deve ter formato válido"))]
     pub email: String,
-    
+
     #[validate(length(min = 6, message = "Senha deve ter pelo menos 6 caracteres"))]
     pub password: String,
-    
+
     #[validate(range(min = 1, max = 150, message = "Idade deve estar entre 1 e 150 anos"))]
     pub age: i32,
 }
@@ -35,7 +35,7 @@ pub struct RegisterRequest {
 pub struct ChangePasswordRequest {
     #[validate(length(min = 6, message = "Senha atual deve ter pelo menos 6 caracteres"))]
     pub current_password: String,
-    
+
     #[validate(length(min = 6, message = "Nova senha deve ter pelo menos 6 caracteres"))]
     pub new_password: String,
 }

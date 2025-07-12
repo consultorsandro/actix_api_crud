@@ -33,9 +33,14 @@ pub trait UserRepositoryTrait: Repository<User, Uuid> {
         params: &PaginationParams,
     ) -> Result<(Vec<User>, u64), AppError>;
     async fn count_all(&self) -> Result<u64, AppError>;
-    
+
     // Etapa 5: Métodos de autenticação
     async fn find_by_email_direct(&self, email: &str) -> Result<User, AppError>;
-    async fn create_with_password(&self, create_dto: crate::models::user::CreateUserDto, password_hash: String, role: String) -> Result<User, AppError>;
+    async fn create_with_password(
+        &self,
+        create_dto: crate::models::user::CreateUserDto,
+        password_hash: String,
+        role: String,
+    ) -> Result<User, AppError>;
     async fn update_password(&self, id: Uuid, new_password_hash: String) -> Result<(), AppError>;
 }

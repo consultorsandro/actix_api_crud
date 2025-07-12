@@ -1,4 +1,4 @@
-use actix_web::{HttpResponse, Result, HttpRequest};
+use actix_web::{HttpRequest, HttpResponse, Result};
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
@@ -55,11 +55,11 @@ impl SimpleRateLimiter {
     pub fn check_rate_limit(&self, ip: &str) -> bool {
         let mut requests = self.requests.lock().unwrap();
         let now = Instant::now();
-        
+
         // Limpar requisições antigas
         let entry = requests.entry(ip.to_string()).or_insert_with(Vec::new);
         entry.retain(|&time| now.duration_since(time) < self.window_duration);
-        
+
         // Verificar se pode fazer nova requisição
         if entry.len() < self.max_requests as usize {
             entry.push(now);

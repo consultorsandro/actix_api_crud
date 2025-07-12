@@ -19,7 +19,7 @@ impl CorsConfig {
     /// Configuração de CORS para produção
     pub fn production() -> Cors {
         let allowed_origins = Self::get_allowed_origins();
-        
+
         let mut cors = Cors::default()
             .allowed_methods(vec!["GET", "POST", "PUT", "DELETE", "OPTIONS"])
             .allowed_headers(vec![
@@ -53,7 +53,7 @@ impl CorsConfig {
     /// Configuração de CORS para staging
     pub fn staging() -> Cors {
         let allowed_origins = Self::get_allowed_origins();
-        
+
         let mut cors = Cors::default()
             .allowed_methods(vec!["GET", "POST", "PUT", "DELETE", "OPTIONS"])
             .allowed_headers(vec![
@@ -93,10 +93,7 @@ impl CorsConfig {
             .allowed_origin("http://localhost:3000")
             .allowed_origin("http://localhost:8080")
             .allowed_methods(vec!["GET", "POST", "PUT", "DELETE"])
-            .allowed_headers(vec![
-                header::AUTHORIZATION,
-                header::CONTENT_TYPE,
-            ])
+            .allowed_headers(vec![header::AUTHORIZATION, header::CONTENT_TYPE])
             .max_age(3600)
     }
 
@@ -154,6 +151,8 @@ pub mod cors_utils {
             // Adicione outros domínios conforme necessário
         ];
 
-        blocked_domains.iter().any(|&blocked| domain.contains(blocked))
+        blocked_domains
+            .iter()
+            .any(|&blocked| domain.contains(blocked))
     }
 }

@@ -9,7 +9,7 @@ use uuid::Uuid;
 use crate::errors::AppError;
 use crate::models::{
     pagination::{PaginationParams, UserFilters},
-    user::{User, CreateUserDto},
+    user::{CreateUserDto, User},
 };
 use crate::repositories::{Repository, UserRepositoryTrait};
 
@@ -89,7 +89,10 @@ impl Repository<User, Uuid> for UserRepository {
                 let user = User {
                     id: row.get("id"),
                     name: row.get("name"),
-                    email: row.get("email"), age: row.get("age"), password_hash: row.get("password_hash"), role: row.get("role"),
+                    email: row.get("email"),
+                    age: row.get("age"),
+                    password_hash: row.get("password_hash"),
+                    role: row.get("role"),
                     created_at: row.get("created_at"),
                     updated_at: row.get("updated_at"),
                 };
@@ -112,7 +115,10 @@ impl Repository<User, Uuid> for UserRepository {
             .map(|row| User {
                 id: row.get("id"),
                 name: row.get("name"),
-                email: row.get("email"), age: row.get("age"), password_hash: row.get("password_hash"), role: row.get("role"),
+                email: row.get("email"),
+                age: row.get("age"),
+                password_hash: row.get("password_hash"),
+                role: row.get("role"),
                 created_at: row.get("created_at"),
                 updated_at: row.get("updated_at"),
             })
@@ -243,7 +249,10 @@ impl Repository<User, Uuid> for UserRepository {
             .map(|row| User {
                 id: row.get("id"),
                 name: row.get("name"),
-                email: row.get("email"), age: row.get("age"), password_hash: row.get("password_hash"), role: row.get("role"),
+                email: row.get("email"),
+                age: row.get("age"),
+                password_hash: row.get("password_hash"),
+                role: row.get("role"),
                 created_at: row.get("created_at"),
                 updated_at: row.get("updated_at"),
             })
@@ -270,7 +279,10 @@ impl UserRepositoryTrait for UserRepository {
                 let user = User {
                     id: row.get("id"),
                     name: row.get("name"),
-                    email: row.get("email"), age: row.get("age"), password_hash: row.get("password_hash"), role: row.get("role"),
+                    email: row.get("email"),
+                    age: row.get("age"),
+                    password_hash: row.get("password_hash"),
+                    role: row.get("role"),
                     created_at: row.get("created_at"),
                     updated_at: row.get("updated_at"),
                 };
@@ -347,7 +359,12 @@ impl UserRepositoryTrait for UserRepository {
         }
     }
 
-    async fn create_with_password(&self, create_dto: CreateUserDto, password_hash: String, role: String) -> Result<User, AppError> {
+    async fn create_with_password(
+        &self,
+        create_dto: CreateUserDto,
+        password_hash: String,
+        role: String,
+    ) -> Result<User, AppError> {
         let result = sqlx::query("INSERT INTO users (name, email, age, password_hash, role) VALUES ($1, $2, $3, $4, $5) RETURNING id, name, email, age, password_hash, role, created_at, updated_at")
             .bind(&create_dto.name)
             .bind(&create_dto.email)
@@ -372,15 +389,20 @@ impl UserRepositoryTrait for UserRepository {
         Ok(created_user)
     }
 
-    async fn update_password(&self, user_id: uuid::Uuid, new_password_hash: String) -> Result<(), AppError> {
-        let _result = sqlx::query("UPDATE users SET password_hash = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2")
-            .bind(&new_password_hash)
-            .bind(user_id)
-            .execute(&self.pool)
-            .await
-            .map_err(|e| AppError::Database(format!("Failed to update password: {}", e)))?;
+    async fn update_password(
+        &self,
+        user_id: uuid::Uuid,
+        new_password_hash: String,
+    ) -> Result<(), AppError> {
+        let _result = sqlx::query(
+            "UPDATE users SET password_hash = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2",
+        )
+        .bind(&new_password_hash)
+        .bind(user_id)
+        .execute(&self.pool)
+        .await
+        .map_err(|e| AppError::Database(format!("Failed to update password: {}", e)))?;
 
         Ok(())
     }
 }
-

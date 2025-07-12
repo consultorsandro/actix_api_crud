@@ -64,6 +64,52 @@ impl DatabaseConfig {
         self.min_connections = min_connections;
         self
     }
+
+    pub fn validate(&self) -> Result<(), String> {
+        if self.max_connections == 0 {
+            return Err("max_connections must be greater than 0".to_string());
+        }
+        if self.min_connections == 0 {
+            return Err("min_connections must be greater than 0".to_string());
+        }
+        if self.min_connections > self.max_connections {
+            return Err("min_connections cannot be greater than max_connections".to_string());
+        }
+        if !self.url.starts_with("postgresql://") && !self.url.starts_with("postgres://") {
+            return Err("DATABASE_URL must start with postgresql:// or postgres://".to_string());
+        }
+        Ok(())
+    }
+
+    pub fn development() -> Self {
+        Self {
+            url: "postgresql://postgres:postgres@localhost:5432/actix_crud_dev".to_string(),
+            max_connections: 5,
+            min_connections: 1,
+            connect_timeout: Duration::from_secs(30),
+            idle_timeout: Duration::from_secs(600),
+        }
+    }
+
+    pub fn production() -> Self {
+        Self {
+            url: std::env::var("DATABASE_URL").expect("DATABASE_URL must be set in production"),
+            max_connections: 20,
+            min_connections: 5,
+            connect_timeout: Duration::from_secs(30),
+            idle_timeout: Duration::from_secs(600),
+        }
+    }
+
+    pub fn test() -> Self {
+        Self {
+            url: "postgresql://postgres:postgres@localhost:5432/test_db".to_string(),
+            max_connections: 2,
+            min_connections: 1,
+            connect_timeout: Duration::from_secs(30),
+            idle_timeout: Duration::from_secs(600),
+        }
+    }
 }
 
 pub async fn create_connection_pool(config: &DatabaseConfig) -> Result<PgPool, AppError> {
@@ -148,4 +194,236 @@ pub async fn check_database_availability(database_url: &str) -> Result<(), AppEr
     pool.close().await;
     log::info!("Database is available and responsive");
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serial_test::serial;
+    use std::env;
+
+    #[test]
+    #[serial]
+    fn test_database_config_from_env() {
+        unsafe {
+            env::set_var(
+                "DATABASE_URL",
+                "postgresql://test:test@localhost:5432/test_db",
+            );
+            env::set_var("DB_MAX_CONNECTIONS", "20");
+            env::set_var("DB_MIN_CONNECTIONS", "5");
+            env::set_var("DB_CONNECT_TIMEOUT", "60");
+            env::set_var("DB_IDLE_TIMEOUT", "300");
+        }
+
+        let config = DatabaseConfig::from_env();
+
+        assert_eq!(config.url, "postgresql://test:test@localhost:5432/test_db");
+        assert_eq!(config.max_connections, 20);
+        assert_eq!(config.min_connections, 5);
+        assert_eq!(config.connect_timeout, Duration::from_secs(60));
+        assert_eq!(config.idle_timeout, Duration::from_secs(300));
+
+        unsafe {
+            env::remove_var("DATABASE_URL");
+            env::remove_var("DB_MAX_CONNECTIONS");
+            env::remove_var("DB_MIN_CONNECTIONS");
+            env::remove_var("DB_CONNECT_TIMEOUT");
+            env::remove_var("DB_IDLE_TIMEOUT");
+        }
+    }
+
+    #[test]
+    #[serial]
+    fn test_database_config_default_values() {
+        unsafe {
+            env::remove_var("DATABASE_URL");
+            env::remove_var("DB_MAX_CONNECTIONS");
+            env::remove_var("DB_MIN_CONNECTIONS");
+            env::remove_var("DB_CONNECT_TIMEOUT");
+            env::remove_var("DB_IDLE_TIMEOUT");
+        }
+
+        let config = DatabaseConfig::from_env();
+
+        assert_eq!(
+            config.url,
+            "postgresql://postgres:postgres@localhost:5432/actix_crud_db"
+        );
+        assert_eq!(config.max_connections, 10);
+        assert_eq!(config.min_connections, 1);
+        assert_eq!(config.connect_timeout, Duration::from_secs(30));
+        assert_eq!(config.idle_timeout, Duration::from_secs(600));
+    }
+
+    #[test]
+    fn test_database_config_from_url() {
+        let test_url = "postgresql://custom:password@example.com:5432/custom_db".to_string();
+        let config = DatabaseConfig::from_url(test_url.clone());
+
+        assert_eq!(config.url, test_url);
+        assert_eq!(config.max_connections, 10); // Default values
+        assert_eq!(config.min_connections, 1);
+    }
+
+    #[test]
+    #[serial]
+    fn test_database_config_invalid_numbers() {
+        unsafe {
+            env::set_var(
+                "DATABASE_URL",
+                "postgresql://test:test@localhost:5432/test_db",
+            );
+            env::set_var("DB_MAX_CONNECTIONS", "invalid");
+            env::set_var("DB_MIN_CONNECTIONS", "invalid");
+            env::set_var("DB_CONNECT_TIMEOUT", "invalid");
+            env::set_var("DB_IDLE_TIMEOUT", "invalid");
+        }
+
+        let config = DatabaseConfig::from_env();
+
+        // Should use default values when parsing fails
+        assert_eq!(config.max_connections, 10);
+        assert_eq!(config.min_connections, 1);
+        assert_eq!(config.connect_timeout, Duration::from_secs(30));
+        assert_eq!(config.idle_timeout, Duration::from_secs(600));
+
+        unsafe {
+            env::remove_var("DATABASE_URL");
+            env::remove_var("DB_MAX_CONNECTIONS");
+            env::remove_var("DB_MIN_CONNECTIONS");
+            env::remove_var("DB_CONNECT_TIMEOUT");
+            env::remove_var("DB_IDLE_TIMEOUT");
+        }
+    }
+
+    #[test]
+    fn test_database_config_validation() {
+        let valid_config = DatabaseConfig {
+            url: "postgresql://user:pass@localhost:5432/db".to_string(),
+            max_connections: 10,
+            min_connections: 1,
+            connect_timeout: Duration::from_secs(30),
+            idle_timeout: Duration::from_secs(600),
+        };
+
+        let result = valid_config.validate();
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_database_config_validation_invalid_max_connections() {
+        let invalid_config = DatabaseConfig {
+            url: "postgresql://user:pass@localhost:5432/db".to_string(),
+            max_connections: 0, // Invalid
+            min_connections: 1,
+            connect_timeout: Duration::from_secs(30),
+            idle_timeout: Duration::from_secs(600),
+        };
+
+        let result = invalid_config.validate();
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("max_connections"));
+    }
+
+    #[test]
+    fn test_database_config_validation_min_greater_than_max() {
+        let invalid_config = DatabaseConfig {
+            url: "postgresql://user:pass@localhost:5432/db".to_string(),
+            max_connections: 5,
+            min_connections: 10, // Greater than max
+            connect_timeout: Duration::from_secs(30),
+            idle_timeout: Duration::from_secs(600),
+        };
+
+        let result = invalid_config.validate();
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("min_connections"));
+    }
+
+    #[test]
+    fn test_database_config_validation_invalid_url() {
+        let invalid_config = DatabaseConfig {
+            url: "invalid_url".to_string(), // Invalid URL
+            max_connections: 10,
+            min_connections: 1,
+            connect_timeout: Duration::from_secs(30),
+            idle_timeout: Duration::from_secs(600),
+        };
+
+        let result = invalid_config.validate();
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("DATABASE_URL"));
+    }
+
+    #[test]
+    fn test_database_config_development() {
+        let config = DatabaseConfig::development();
+
+        assert!(config.url.contains("localhost"));
+        assert!(config.url.contains("actix_crud_dev"));
+        assert_eq!(config.max_connections, 5);
+        assert_eq!(config.min_connections, 1);
+    }
+
+    #[test]
+    #[serial]
+    fn test_database_config_production() {
+        unsafe {
+            env::set_var(
+                "DATABASE_URL",
+                "postgresql://prod:secret@prod-server:5432/prod_db",
+            );
+        }
+
+        let config = DatabaseConfig::production();
+
+        assert_eq!(
+            config.url,
+            "postgresql://prod:secret@prod-server:5432/prod_db"
+        );
+        assert_eq!(config.max_connections, 20);
+        assert_eq!(config.min_connections, 5);
+
+        unsafe {
+            env::remove_var("DATABASE_URL");
+        }
+    }
+
+    #[test]
+    fn test_database_config_test() {
+        let config = DatabaseConfig::test();
+
+        assert!(config.url.contains("test"));
+        assert_eq!(config.max_connections, 2);
+        assert_eq!(config.min_connections, 1);
+    }
+
+    // Note: Os testes de conexão real com banco precisariam de um banco de teste
+    // Para isso, você configuraria um container Docker ou banco em memória
+
+    #[test]
+    fn test_database_url_parsing() {
+        let urls = vec![
+            "postgresql://user:pass@localhost:5432/database",
+            "postgres://user:pass@localhost:5432/database",
+            "postgresql://user@localhost/database",
+            "postgresql://localhost/database",
+        ];
+
+        for url in urls {
+            let config = DatabaseConfig::from_url(url.to_string());
+            assert_eq!(config.url, url);
+        }
+    }
+
+    #[test]
+    fn test_database_config_clone() {
+        let config = DatabaseConfig::development();
+        let cloned_config = config.clone();
+
+        assert_eq!(config.url, cloned_config.url);
+        assert_eq!(config.max_connections, cloned_config.max_connections);
+        assert_eq!(config.min_connections, cloned_config.min_connections);
+    }
 }

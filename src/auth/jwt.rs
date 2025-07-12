@@ -1,11 +1,11 @@
 // src/auth/jwt.rs
 // Etapa 5: Sistema JWT para autenticação e autorização
 
-use actix_web::{dev::ServiceRequest, Error, HttpMessage};
-use actix_web_httpauth::extractors::bearer::{BearerAuth, Config};
+use actix_web::{Error, HttpMessage, dev::ServiceRequest};
 use actix_web_httpauth::extractors::AuthenticationError;
+use actix_web_httpauth::extractors::bearer::{BearerAuth, Config};
 use chrono::{Duration, Utc};
-use jsonwebtoken::{decode, encode, Algorithm, DecodingKey, EncodingKey, Header, Validation};
+use jsonwebtoken::{Algorithm, DecodingKey, EncodingKey, Header, Validation, decode, encode};
 use serde::{Deserialize, Serialize};
 use std::env;
 use uuid::Uuid;
@@ -15,12 +15,12 @@ use crate::errors::AppError;
 /// Claims do JWT token
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Claims {
-    pub sub: String,        // Subject (user ID)
-    pub email: String,      // Email do usuário
-    pub name: String,       // Nome do usuário
-    pub exp: i64,          // Expiration time
-    pub iat: i64,          // Issued at
-    pub role: String,      // Role do usuário (admin, user, etc.)
+    pub sub: String,   // Subject (user ID)
+    pub email: String, // Email do usuário
+    pub name: String,  // Nome do usuário
+    pub exp: i64,      // Expiration time
+    pub iat: i64,      // Issued at
+    pub role: String,  // Role do usuário (admin, user, etc.)
 }
 
 /// Configuração JWT
@@ -36,7 +36,7 @@ impl JwtConfig {
     pub fn from_env() -> Result<Self, AppError> {
         let secret = env::var("JWT_SECRET")
             .map_err(|_| AppError::Configuration("JWT_SECRET not found".to_string()))?;
-        
+
         let expiration_hours = env::var("JWT_EXPIRATION")
             .unwrap_or("24".to_string())
             .parse::<i64>()
@@ -50,7 +50,13 @@ impl JwtConfig {
     }
 
     /// Gera um token JWT
-    pub fn generate_token(&self, user_id: Uuid, email: &str, name: &str, role: &str) -> Result<String, AppError> {
+    pub fn generate_token(
+        &self,
+        user_id: Uuid,
+        email: &str,
+        name: &str,
+        role: &str,
+    ) -> Result<String, AppError> {
         let now = Utc::now();
         let exp = now + Duration::hours(self.expiration_hours);
 
@@ -105,7 +111,7 @@ pub async fn jwt_middleware(
     };
 
     let token = credentials.token();
-    
+
     match config.decode_token(token) {
         Ok(claims) => {
             if config.is_token_valid(&claims) {
@@ -163,16 +169,13 @@ mod tests {
 
         let config = JwtConfig::from_env().unwrap();
         let user_id = Uuid::new_v4();
-        
-        let token = config.generate_token(
-            user_id,
-            "test@example.com",
-            "Test User",
-            "user"
-        ).unwrap();
+
+        let token = config
+            .generate_token(user_id, "test@example.com", "Test User", "user")
+            .unwrap();
 
         let claims = config.decode_token(&token).unwrap();
-        
+
         assert_eq!(claims.sub, user_id.to_string());
         assert_eq!(claims.email, "test@example.com");
         assert_eq!(claims.name, "Test User");
