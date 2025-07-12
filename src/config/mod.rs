@@ -3,3 +3,6 @@
 
 pub mod app_config;
 pub mod database;
+pub mod security;
+
+pub use security::SecurityConfig;

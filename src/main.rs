@@ -14,7 +14,7 @@ mod repositories;
 mod routes;
 mod services;
 
-use config::database;
+use config::{database, SecurityConfig};
 use handlers::UserHandler;
 // use handlers::AuthHandler; // Comentado temporariamente
 use repositories::user_repository::UserRepository;
@@ -22,7 +22,9 @@ use services::user_service::UserService;
 use models::user::{CreateUserDto, UpdateUserDto};
 use models::pagination::PaginationParams;
 // use auth::models::{LoginRequest, RegisterRequest, ChangePasswordRequest}; // Comentado temporariamente
-use middlewares::ValidatedJson;
+use middlewares::{
+    ValidatedJson, SecurityHeaders, InputSanitizer, CorsConfig
+};
 
 // Handler wrapper functions para evitar problemas de tipo
 async fn create_user_wrapper(
@@ -123,7 +125,29 @@ async fn main() -> std::io::Result<()> {
     // Configura o sistema de logs
     env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("info")).init();
 
-    info!("🚀 Starting Actix API CRUD Server - Etapa 3: Database Integration");
+    info!("🚀 Starting Actix API CRUD Server - Etapa 6: Security & Middleware");
+
+    // Carregar configurações de segurança
+    let security_config = if SecurityConfig::is_development() {
+        info!("🔧 Loading development security configuration");
+        SecurityConfig::development()
+    } else {
+        info!("🔐 Loading production security configuration");
+        SecurityConfig::from_env()
+    };
+
+    // Validar configurações de segurança
+    if let Err(e) = security_config.validate() {
+        log::error!("❌ Security configuration validation failed: {}", e);
+        std::process::exit(1);
+    }
+
+    info!("✅ Security configuration validated successfully");
+    info!("🔐 Security features enabled:");
+    info!("   - Rate limiting: {}", security_config.rate_limit_enabled);
+    info!("   - Security headers: {}", security_config.security_headers_enabled);
+    info!("   - Input sanitization: {}", security_config.input_sanitization_enabled);
+    info!("   - HTTPS only: {}", security_config.https_only);
 
     // Configurar banco de dados
     let db_config = database::DatabaseConfig::from_env();
@@ -178,7 +202,7 @@ async fn main() -> std::io::Result<()> {
     let host = "0.0.0.0";
     let addr = format!("{}:{}", host, port);
 
-    info!("� Server will run at: http://{}", addr);
+    info!("🛡️ Server will run at: http://{}", addr);
     info!(
         "🔧 Environment: {}",
         env::var("RUST_ENV").unwrap_or_else(|_| "development".to_string())
@@ -191,40 +215,51 @@ async fn main() -> std::io::Result<()> {
             "❌"
         }
     );
+    info!("🛡️ Security middleware status:");
+    info!("   - CORS: ✅ Configured");
+    info!("   - Rate Limiting: {}", if security_config.rate_limit_enabled { "✅" } else { "❌" });
+    info!("   - Security Headers: {}", if security_config.security_headers_enabled { "✅" } else { "❌" });
+    info!("   - Input Sanitization: {}", if security_config.input_sanitization_enabled { "✅" } else { "❌" });
 
     HttpServer::new(move || {
-        App::new()
+        let app = App::new()
+            // CORS - deve ser o primeiro middleware
+            .wrap(CorsConfig::auto())
             // Middleware de logging
             .wrap(Logger::default())
+            // Middleware de headers de segurança
+            .wrap(SecurityHeaders)
+            // Middleware de sanitização de input
+            .wrap(InputSanitizer)
             // Adicionar handlers como dados da aplicação
             .app_data(web::Data::new(user_handler.clone()))
             // .app_data(web::Data::new(auth_handler.clone())) // Comentado temporariamente
             // Rota de health check na raiz
-            .service(index)
-            // Rotas da API
+            .service(index);
+
+        // Adicionar rotas da API
+        let api_scope = web::scope("/api/v1")
             .service(
-                web::scope("/api/v1")
-                    .service(
-                        web::scope("/users")
-                            .route("", web::post().to(create_user_wrapper))
-                            .route("", web::get().to(get_all_users_wrapper))
-                            .route("/paginated", web::get().to(get_users_paginated_wrapper))
-                            .route("/{id}", web::get().to(get_user_by_id_wrapper))
-                            .route("/{id}", web::put().to(update_user_wrapper))
-                            .route("/{id}", web::delete().to(delete_user_wrapper)),
-                    )
-                    // Auth routes commented temporarily - ready for integration
-                    // .service(
-                    //     web::scope("/auth")
-                    //         .route("/login", web::post().to(login_wrapper))
-                    //         .route("/register", web::post().to(register_wrapper))
-                    //         .route("/me", web::get().to(me_wrapper))
-                    //         .route("/change-password", web::put().to(change_password_wrapper))
-                    //         .route("/logout", web::post().to(logout_wrapper))
-                    // )
-            )
-            // Configura as rotas básicas
-            .configure(routes::init_routes)
+                web::scope("/users")
+                    .route("", web::post().to(create_user_wrapper))
+                    .route("", web::get().to(get_all_users_wrapper))
+                    .route("/paginated", web::get().to(get_users_paginated_wrapper))
+                    .route("/{id}", web::get().to(get_user_by_id_wrapper))
+                    .route("/{id}", web::put().to(update_user_wrapper))
+                    .route("/{id}", web::delete().to(delete_user_wrapper)),
+            );
+            // Auth routes commented temporarily - ready for integration
+            // .service(
+            //     web::scope("/auth")
+            //         .route("/login", web::post().to(login_wrapper))
+            //         .route("/register", web::post().to(register_wrapper))
+            //         .route("/me", web::get().to(me_wrapper))
+            //         .route("/change-password", web::put().to(change_password_wrapper))
+            //         .route("/logout", web::post().to(logout_wrapper))
+            // );
+
+        app.service(api_scope)
+           .configure(routes::init_routes)
     })
     .bind(&addr)?
     .run()
