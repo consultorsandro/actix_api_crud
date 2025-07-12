@@ -23,5 +23,11 @@ pub trait UserServiceTrait {
     ) -> Result<PaginatedResponse<UserResponse>, AppError>;
     async fn update_user(&self, id: Uuid, update_dto: UpdateUserDto) -> Result<User, AppError>;
     async fn delete_user(&self, id: Uuid) -> Result<bool, AppError>;
+    
+    // Etapa 5: Métodos de autenticação
     async fn authenticate_user(&self, email: &str, password: &str) -> Result<User, AppError>;
+    async fn find_by_email(&self, email: &str) -> Result<User, AppError>;
+    async fn find_by_id(&self, id: Uuid) -> Result<User, AppError>;
+    async fn create_with_password(&self, create_dto: CreateUserDto, password_hash: String, role: String) -> Result<User, AppError>;
+    async fn update_password(&self, id: Uuid, new_password_hash: String) -> Result<(), AppError>;
 }

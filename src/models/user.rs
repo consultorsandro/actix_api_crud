@@ -11,8 +11,10 @@ pub struct User {
     pub id: Uuid,
     pub name: String,
     pub email: String,
+    pub age: i32,
     #[serde(skip_serializing)] // Nunca serializar a senha
     pub password_hash: String,
+    pub role: Option<String>,  // Role do usuário (admin, user, etc.)
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
 }
@@ -23,6 +25,8 @@ pub struct UserResponse {
     pub id: Uuid,
     pub name: String,
     pub email: String,
+    pub age: i32,
+    pub role: Option<String>,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
 }
@@ -33,6 +37,8 @@ impl From<User> for UserResponse {
             id: user.id,
             name: user.name,
             email: user.email,
+            age: user.age,
+            role: user.role,
             created_at: user.created_at,
             updated_at: user.updated_at,
         }
@@ -51,6 +57,9 @@ pub struct CreateUserDto {
 
     #[validate(email(message = "Invalid email format"))]
     pub email: String,
+
+    #[validate(range(min = 1, max = 150, message = "Age must be between 1 and 150"))]
+    pub age: i32,
 
     #[validate(length(min = 6, message = "Password must be at least 6 characters"))]
     pub password: String,

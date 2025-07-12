@@ -9,7 +9,7 @@ use crate::models::{
     user::{CreateUserDto, UpdateUserDto, UserResponse},
 };
 use crate::services::UserServiceTrait;
-// use crate::middlewares::ValidatedJson; // Temporariamente comentado
+use crate::middlewares::ValidatedJson;
 
 // Estrutura que encapsula as dependências dos handlers
 #[derive(Clone)]
@@ -28,10 +28,10 @@ where
         Self { user_service }
     }
 
-    // POST /users - Criar usuário com validação
+    // POST /users - Criar usuário com validação automática
     pub async fn create_user(
         &self,
-        create_dto: web::Json<CreateUserDto>,
+        create_dto: ValidatedJson<CreateUserDto>,
     ) -> Result<HttpResponse, AppError> {
         log::info!("Creating new user with email: {}", create_dto.email);
 
@@ -101,11 +101,11 @@ where
         })))
     }
 
-    // PUT /users/{id} - Atualizar usuário com validação
+    // PUT /users/{id} - Atualizar usuário com validação automática
     pub async fn update_user(
         &self,
         path: web::Path<Uuid>,
-        update_dto: web::Json<UpdateUserDto>,
+        update_dto: ValidatedJson<UpdateUserDto>,
     ) -> Result<HttpResponse, AppError> {
         let user_id = path.into_inner();
         log::info!("Updating user with ID: {}", user_id);

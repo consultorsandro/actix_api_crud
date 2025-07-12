@@ -15,16 +15,19 @@ mod routes;
 mod services;
 
 use config::database;
-use handlers::user_handler::UserHandler;
+use handlers::UserHandler;
+// use handlers::AuthHandler; // Comentado temporariamente
 use repositories::user_repository::UserRepository;
 use services::user_service::UserService;
 use models::user::{CreateUserDto, UpdateUserDto};
 use models::pagination::PaginationParams;
+// use auth::models::{LoginRequest, RegisterRequest, ChangePasswordRequest}; // Comentado temporariamente
+use middlewares::ValidatedJson;
 
 // Handler wrapper functions para evitar problemas de tipo
 async fn create_user_wrapper(
     handler: web::Data<UserHandler<UserService<UserRepository>>>,
-    dto: web::Json<CreateUserDto>,
+    dto: ValidatedJson<CreateUserDto>,
 ) -> impl Responder {
     handler.create_user(dto).await
 }
@@ -52,7 +55,7 @@ async fn get_user_by_id_wrapper(
 async fn update_user_wrapper(
     handler: web::Data<UserHandler<UserService<UserRepository>>>,
     path: web::Path<uuid::Uuid>,
-    dto: web::Json<UpdateUserDto>,
+    dto: ValidatedJson<UpdateUserDto>,
 ) -> impl Responder {
     handler.update_user(path, dto).await
 }
@@ -63,6 +66,44 @@ async fn delete_user_wrapper(
 ) -> impl Responder {
     handler.delete_user(path).await
 }
+
+/* Auth handler wrapper functions - Ready for integration after trait resolution
+async fn login_wrapper(
+    handler: web::Data<AuthHandler<UserService<UserRepository>>>,
+    dto: web::Json<LoginRequest>,
+) -> impl Responder {
+    handler.login(dto).await
+}
+
+async fn register_wrapper(
+    handler: web::Data<AuthHandler<UserService<UserRepository>>>,
+    dto: web::Json<RegisterRequest>,
+) -> impl Responder {
+    handler.register(dto).await
+}
+
+async fn me_wrapper(
+    handler: web::Data<AuthHandler<UserService<UserRepository>>>,
+    req: actix_web::HttpRequest,
+) -> impl Responder {
+    handler.me(req).await
+}
+
+async fn change_password_wrapper(
+    handler: web::Data<AuthHandler<UserService<UserRepository>>>,
+    req: actix_web::HttpRequest,
+    dto: web::Json<ChangePasswordRequest>,
+) -> impl Responder {
+    handler.change_password(req, dto).await
+}
+
+async fn logout_wrapper(
+    handler: web::Data<AuthHandler<UserService<UserRepository>>>,
+    req: actix_web::HttpRequest,
+) -> impl Responder {
+    handler.logout(req).await
+}
+*/
 
 #[get("/")]
 async fn index() -> impl Responder {
@@ -125,10 +166,12 @@ async fn main() -> std::io::Result<()> {
 
     // Configurar dependências com injeção
     let user_repository = UserRepository::new(db_pool.clone());
-    let user_service = UserService::new(user_repository);
-    let user_handler = UserHandler::new(user_service);
+    let user_service = UserService::new(user_repository.clone());
+    let user_handler = UserHandler::new(user_service.clone());
+    // let auth_handler = AuthHandler::new(user_service.clone()); // Comentado temporariamente
 
     info!("🔧 Dependencies configured with dependency injection");
+    info!("🔐 Auth system ready for integration (temporarily commented)");
 
     // Lê configurações do ambiente
     let port = env::var("APP_PORT").unwrap_or_else(|_| "8080".to_string());
@@ -153,26 +196,32 @@ async fn main() -> std::io::Result<()> {
         App::new()
             // Middleware de logging
             .wrap(Logger::default())
-            // Adicionar handler como dados da aplicação
+            // Adicionar handlers como dados da aplicação
             .app_data(web::Data::new(user_handler.clone()))
+            // .app_data(web::Data::new(auth_handler.clone())) // Comentado temporariamente
             // Rota de health check na raiz
             .service(index)
             // Rotas da API
             .service(
-                web::scope("/api/v1").service(
-                    web::scope("/users")
-                        .route("", web::post().to(create_user_wrapper))
-                        .route("", web::get().to(get_all_users_wrapper))
-                        .route("/paginated", web::get().to(get_users_paginated_wrapper))
-                        .route("/{id}", web::get().to(get_user_by_id_wrapper))
-                        .route("/{id}", web::put().to(update_user_wrapper))
-                        .route("/{id}", web::delete().to(delete_user_wrapper)),
-                ), // .service(
-                   //     web::scope("/auth")
-                   //         .route("/login", web::post().to(|handler: web::Data<UserHandler<_>>, dto| async move {
-                   //             handler.login(dto).await
-                   //         }))
-                   // )
+                web::scope("/api/v1")
+                    .service(
+                        web::scope("/users")
+                            .route("", web::post().to(create_user_wrapper))
+                            .route("", web::get().to(get_all_users_wrapper))
+                            .route("/paginated", web::get().to(get_users_paginated_wrapper))
+                            .route("/{id}", web::get().to(get_user_by_id_wrapper))
+                            .route("/{id}", web::put().to(update_user_wrapper))
+                            .route("/{id}", web::delete().to(delete_user_wrapper)),
+                    )
+                    // Auth routes commented temporarily - ready for integration
+                    // .service(
+                    //     web::scope("/auth")
+                    //         .route("/login", web::post().to(login_wrapper))
+                    //         .route("/register", web::post().to(register_wrapper))
+                    //         .route("/me", web::get().to(me_wrapper))
+                    //         .route("/change-password", web::put().to(change_password_wrapper))
+                    //         .route("/logout", web::post().to(logout_wrapper))
+                    // )
             )
             // Configura as rotas básicas
             .configure(routes::init_routes)
