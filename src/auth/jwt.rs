@@ -24,6 +24,7 @@ pub struct Claims {
 }
 
 /// Configuração JWT
+#[allow(dead_code)] // Temporarily unused while auth is commented
 pub struct JwtConfig {
     pub secret: String,
     pub expiration_hours: i64,
@@ -87,6 +88,7 @@ impl JwtConfig {
 }
 
 /// Middleware de validação JWT para Actix-Web
+#[allow(dead_code)] // Temporarily unused while auth is commented
 pub async fn jwt_middleware(
     req: ServiceRequest,
     credentials: BearerAuth,
@@ -129,6 +131,7 @@ pub async fn jwt_middleware(
 }
 
 /// Extrator de claims do JWT para uso nos handlers
+#[allow(dead_code)] // Temporarily unused while auth is commented
 pub struct JwtUser(pub Claims);
 
 impl From<Claims> for JwtUser {
@@ -138,6 +141,7 @@ impl From<Claims> for JwtUser {
 }
 
 /// Helper para extrair usuário autenticado da request
+#[allow(dead_code)] // Temporarily unused while auth is commented
 pub fn get_current_user(req: &actix_web::HttpRequest) -> Result<Claims, AppError> {
     req.extensions()
         .get::<Claims>()
@@ -152,8 +156,10 @@ mod tests {
 
     #[test]
     fn test_jwt_generation_and_validation() {
-        env::set_var("JWT_SECRET", "test-secret-key");
-        env::set_var("JWT_EXPIRATION", "1");
+        unsafe {
+            env::set_var("JWT_SECRET", "test-secret-key");
+            env::set_var("JWT_EXPIRATION", "1");
+        }
 
         let config = JwtConfig::from_env().unwrap();
         let user_id = Uuid::new_v4();
