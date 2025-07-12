@@ -1,0 +1,4 @@
+# SQLx configuration - Etapa 3: Database Integration
+# Desabilitar mode offline temporariamente para desenvolvimento
+
+SQLX_OFFLINE=false
