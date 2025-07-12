@@ -8,6 +8,7 @@ use crate::services::UserServiceTrait;
 use crate::errors::AppError;
 
 // Estrutura que encapsula as dependências dos handlers
+#[derive(Clone)]
 pub struct UserHandler<S>
 where
     S: UserServiceTrait + Send + Sync,

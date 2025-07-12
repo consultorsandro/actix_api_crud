@@ -11,6 +11,7 @@ use crate::repositories::UserRepositoryTrait;
 use crate::errors::AppError;
 
 // Estrutura concreta do serviço de usuários
+#[derive(Clone)]
 pub struct UserService<R>
 where
     R: UserRepositoryTrait + Send + Sync,
@@ -29,13 +30,13 @@ where
     // Helper para hash de senha
     fn hash_password(&self, password: &str) -> Result<String, AppError> {
         hash(password, DEFAULT_COST)
-            .map_err(|e| AppError::InternalServer)
+            .map_err(|_e| AppError::InternalServer)
     }
 
     // Helper para verificar senha
     fn verify_password(&self, password: &str, hash: &str) -> Result<bool, AppError> {
         verify(password, hash)
-            .map_err(|e| AppError::Auth("Invalid password".to_string()))
+            .map_err(|_e| AppError::Auth("Invalid password".to_string()))
     }
 }
 
