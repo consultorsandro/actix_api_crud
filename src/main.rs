@@ -20,11 +20,12 @@ use repositories::user_repository::UserRepository;
 use services::user_service::UserService;
 use models::user::{CreateUserDto, UpdateUserDto};
 use models::pagination::PaginationParams;
+use middlewares::ValidatedJson;
 
 // Handler wrapper functions para evitar problemas de tipo
 async fn create_user_wrapper(
     handler: web::Data<UserHandler<UserService<UserRepository>>>,
-    dto: web::Json<CreateUserDto>,
+    dto: ValidatedJson<CreateUserDto>,
 ) -> impl Responder {
     handler.create_user(dto).await
 }
@@ -52,7 +53,7 @@ async fn get_user_by_id_wrapper(
 async fn update_user_wrapper(
     handler: web::Data<UserHandler<UserService<UserRepository>>>,
     path: web::Path<uuid::Uuid>,
-    dto: web::Json<UpdateUserDto>,
+    dto: ValidatedJson<UpdateUserDto>,
 ) -> impl Responder {
     handler.update_user(path, dto).await
 }

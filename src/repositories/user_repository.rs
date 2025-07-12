@@ -199,7 +199,7 @@ impl Repository<User, Uuid> for UserRepository {
 
         let sort_field = params.sort_by.as_deref().unwrap_or("created_at");
 
-        let query_str = if let Some(ref search) = params.search {
+        let query_str = if let Some(ref _search) = params.search {
             format!(
                 "SELECT id, name, email, password_hash, created_at, updated_at 
                  FROM users 

@@ -2,20 +2,25 @@
 // Etapa 4: Paginação para melhor performance em grandes datasets
 
 use serde::{Deserialize, Serialize};
+use validator::Validate;
 
-// Parâmetros de paginação
-#[derive(Debug, Deserialize)]
+// Parâmetros de paginação com validação
+#[derive(Debug, Deserialize, Validate)]
 pub struct PaginationParams {
     #[serde(default = "default_page")]
+    #[validate(range(min = 1, max = 1000, message = "Page must be between 1 and 1000"))]
     pub page: u32,
 
     #[serde(default = "default_limit")]
+    #[validate(range(min = 1, max = 100, message = "Limit must be between 1 and 100"))]
     pub limit: u32,
 
     #[serde(default)]
+    #[validate(length(max = 100, message = "Search term too long"))]
     pub search: Option<String>,
 
     #[serde(default)]
+    #[validate(length(max = 50, message = "Sort field name too long"))]
     pub sort_by: Option<String>,
 
     #[serde(default = "default_sort_order")]
