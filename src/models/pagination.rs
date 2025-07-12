@@ -8,16 +8,16 @@ use serde::{Deserialize, Serialize};
 pub struct PaginationParams {
     #[serde(default = "default_page")]
     pub page: u32,
-    
+
     #[serde(default = "default_limit")]
     pub limit: u32,
-    
+
     #[serde(default)]
     pub search: Option<String>,
-    
+
     #[serde(default)]
     pub sort_by: Option<String>,
-    
+
     #[serde(default = "default_sort_order")]
     pub sort_order: SortOrder,
 }
@@ -58,7 +58,7 @@ impl PaginationParams {
         if self.page == 0 {
             self.page = 1;
         }
-        
+
         // Limitar tamanho da página
         if self.limit == 0 {
             self.limit = default_limit();
@@ -73,12 +73,7 @@ impl PaginationParams {
 }
 
 impl<T> PaginatedResponse<T> {
-    pub fn new(
-        data: Vec<T>, 
-        page: u32, 
-        limit: u32, 
-        total_items: u64
-    ) -> Self {
+    pub fn new(data: Vec<T>, page: u32, limit: u32, total_items: u64) -> Self {
         let total_pages = if total_items == 0 {
             1
         } else {
@@ -121,9 +116,9 @@ pub struct UserFilters {
 
 impl UserFilters {
     pub fn has_filters(&self) -> bool {
-        self.name.is_some() 
-            || self.email.is_some() 
-            || self.created_after.is_some() 
+        self.name.is_some()
+            || self.email.is_some()
+            || self.created_after.is_some()
             || self.created_before.is_some()
     }
 }

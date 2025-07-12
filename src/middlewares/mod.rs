@@ -3,6 +3,6 @@
 
 pub mod auth_middleware;
 pub mod cors_middleware;
-pub mod validation;
+// pub mod validation; // Temporariamente comentado
 
-pub use validation::{ValidationMiddleware, ValidatedJson};
+// pub use validation::{ValidationMiddleware, ValidatedJson}; // Temporariamente comentado
