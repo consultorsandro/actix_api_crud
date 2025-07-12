@@ -79,7 +79,9 @@ where
             id: Uuid::new_v4(),
             name: create_dto.name.trim().to_string(),
             email: create_dto.email.trim().to_lowercase(),
+            age: create_dto.age,
             password_hash,
+            role: Some("user".to_string()), // Role padrão
             created_at: Utc::now(),
             updated_at: Utc::now(),
         };
@@ -92,6 +94,10 @@ where
             .find_by_id(id)
             .await?
             .ok_or_else(|| AppError::NotFound("User not found".to_string()))
+    }
+
+    async fn find_by_id(&self, id: Uuid) -> Result<User, AppError> {
+        self.get_user_by_id(id).await
     }
 
     async fn get_all_users(&self) -> Result<Vec<User>, AppError> {
@@ -185,5 +191,22 @@ where
         );
 
         Ok(paginated_response)
+    }
+
+    async fn find_by_email(&self, email: &str) -> Result<User, AppError> {
+        self.user_repository.find_by_email_direct(email).await
+    }
+
+    async fn create_with_password(&self, create_dto: CreateUserDto, password_hash: String, role: String) -> Result<User, AppError> {
+        // Verificar se email já existe
+        if let Ok(Some(_)) = self.user_repository.find_by_email(&create_dto.email).await {
+            return Err(AppError::Conflict("Email already exists".to_string()));
+        }
+
+        self.user_repository.create_with_password(create_dto, password_hash, role).await
+    }
+
+    async fn update_password(&self, id: Uuid, new_password_hash: String) -> Result<(), AppError> {
+        self.user_repository.update_password(id, new_password_hash).await
     }
 }

@@ -27,6 +27,19 @@ pub enum AppError {
 
     #[error("Internal server error")]
     InternalServer,
+    
+    // Etapa 5: Novos erros para autenticação JWT
+    #[error("Authentication error: {0}")]
+    Authentication(String),
+    
+    #[error("Authorization error: {0}")]
+    Authorization(String),
+    
+    #[error("Configuration error: {0}")]
+    Configuration(String),
+    
+    #[error("Internal error: {0}")]
+    Internal(String),
 }
 
 // Implementação para converter AppError em resposta HTTP
@@ -80,6 +93,37 @@ impl ResponseError for AppError {
                     "code": "INTERNAL_ERROR",
                     "timestamp": chrono::Utc::now().to_rfc3339()
                 }))
+            },
+            // Etapa 5: Novos casos para autenticação
+            AppError::Authentication(msg) => HttpResponse::Unauthorized().json(serde_json::json!({
+                "status": "error",
+                "message": msg,
+                "code": "AUTHENTICATION_ERROR",
+                "timestamp": chrono::Utc::now().to_rfc3339()
+            })),
+            AppError::Authorization(msg) => HttpResponse::Forbidden().json(serde_json::json!({
+                "status": "error",
+                "message": msg,
+                "code": "AUTHORIZATION_ERROR",
+                "timestamp": chrono::Utc::now().to_rfc3339()
+            })),
+            AppError::Configuration(msg) => {
+                log::error!("Configuration error: {}", msg);
+                HttpResponse::InternalServerError().json(serde_json::json!({
+                    "status": "error",
+                    "message": "Service configuration error",
+                    "code": "CONFIGURATION_ERROR",
+                    "timestamp": chrono::Utc::now().to_rfc3339()
+                }))
+            },
+            AppError::Internal(msg) => {
+                log::error!("Internal error: {}", msg);
+                HttpResponse::InternalServerError().json(serde_json::json!({
+                    "status": "error",
+                    "message": "Internal server error",
+                    "code": "INTERNAL_ERROR",
+                    "timestamp": chrono::Utc::now().to_rfc3339()
+                }))
             }
         }
     }
@@ -93,6 +137,11 @@ impl ResponseError for AppError {
             AppError::Conflict(_) => StatusCode::CONFLICT,
             AppError::BadRequest(_) => StatusCode::BAD_REQUEST,
             AppError::InternalServer => StatusCode::INTERNAL_SERVER_ERROR,
+            // Etapa 5: Novos status codes
+            AppError::Authentication(_) => StatusCode::UNAUTHORIZED,
+            AppError::Authorization(_) => StatusCode::FORBIDDEN,
+            AppError::Configuration(_) => StatusCode::INTERNAL_SERVER_ERROR,
+            AppError::Internal(_) => StatusCode::INTERNAL_SERVER_ERROR,
         }
     }
 }

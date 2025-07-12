@@ -1,5 +1,5 @@
 // Auth - Sistema de autenticação e autorização
-// Aqui ficarão as funções de JWT, login, validação de tokens
+// Etapa 5: Sistema JWT completo implementado
 
 pub mod jwt;
-pub mod login;
+pub mod models;

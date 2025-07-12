@@ -9,7 +9,7 @@ use uuid::Uuid;
 use crate::errors::AppError;
 use crate::models::{
     pagination::{PaginationParams, UserFilters},
-    user::{User, CreateUserDto},
+    user::User,
 };
 use crate::repositories::{Repository, UserRepositoryTrait};
 
@@ -89,7 +89,8 @@ impl Repository<User, Uuid> for UserRepository {
                 let user = User {
                     id: row.get("id"),
                     name: row.get("name"),
-                    email: row.get("email"), age: row.get("age"), password_hash: row.get("password_hash"), role: row.get("role"),
+                    email: row.get("email"),
+                    password_hash: row.get("password_hash"),
                     created_at: row.get("created_at"),
                     updated_at: row.get("updated_at"),
                 };
@@ -112,7 +113,8 @@ impl Repository<User, Uuid> for UserRepository {
             .map(|row| User {
                 id: row.get("id"),
                 name: row.get("name"),
-                email: row.get("email"), age: row.get("age"), password_hash: row.get("password_hash"), role: row.get("role"),
+                email: row.get("email"),
+                password_hash: row.get("password_hash"),
                 created_at: row.get("created_at"),
                 updated_at: row.get("updated_at"),
             })
@@ -151,9 +153,7 @@ impl Repository<User, Uuid> for UserRepository {
             id: result.get("id"),
             name: result.get("name"),
             email: result.get("email"),
-            age: result.get("age"),
             password_hash: result.get("password_hash"),
-            role: result.get("role"),
             created_at: result.get("created_at"),
             updated_at: result.get("updated_at"),
         };
@@ -243,7 +243,8 @@ impl Repository<User, Uuid> for UserRepository {
             .map(|row| User {
                 id: row.get("id"),
                 name: row.get("name"),
-                email: row.get("email"), age: row.get("age"), password_hash: row.get("password_hash"), role: row.get("role"),
+                email: row.get("email"),
+                password_hash: row.get("password_hash"),
                 created_at: row.get("created_at"),
                 updated_at: row.get("updated_at"),
             })
@@ -270,7 +271,8 @@ impl UserRepositoryTrait for UserRepository {
                 let user = User {
                     id: row.get("id"),
                     name: row.get("name"),
-                    email: row.get("email"), age: row.get("age"), password_hash: row.get("password_hash"), role: row.get("role"),
+                    email: row.get("email"),
+                    password_hash: row.get("password_hash"),
                     created_at: row.get("created_at"),
                     updated_at: row.get("updated_at"),
                 };
@@ -322,65 +324,70 @@ impl UserRepositoryTrait for UserRepository {
         Ok(result.get::<i64, _>("count") as u64)
     }
 
+    // Etapa 5: Métodos de autenticação
     async fn find_by_email_direct(&self, email: &str) -> Result<User, AppError> {
-        let result = sqlx::query("SELECT id, name, email, age, password_hash, role, created_at, updated_at FROM users WHERE email = $1")
-            .bind(email)
-            .fetch_optional(&self.pool)
-            .await
-            .map_err(|e| AppError::Database(format!("Failed to find user by email: {}", e)))?;
-
-        match result {
-            Some(row) => {
-                let user = User {
-                    id: row.get("id"),
-                    name: row.get("name"),
-                    email: row.get("email"),
-                    age: row.get("age"),
-                    password_hash: row.get("password_hash"),
-                    role: row.get("role"),
-                    created_at: row.get("created_at"),
-                    updated_at: row.get("updated_at"),
-                };
-                Ok(user)
-            }
-            None => Err(AppError::NotFound("User not found".to_string())),
+        match self.find_by_email(email).await? {
+            Some(user) => Ok(user),
+            None => Err(AppError::NotFound(format!("User with email {} not found", email))),
         }
     }
 
     async fn create_with_password(&self, create_dto: CreateUserDto, password_hash: String, role: String) -> Result<User, AppError> {
-        let result = sqlx::query("INSERT INTO users (name, email, age, password_hash, role) VALUES ($1, $2, $3, $4, $5) RETURNING id, name, email, age, password_hash, role, created_at, updated_at")
-            .bind(&create_dto.name)
-            .bind(&create_dto.email)
-            .bind(create_dto.age)
-            .bind(&password_hash)
-            .bind(&role)
-            .fetch_one(&self.pool)
-            .await
-            .map_err(|e| AppError::Database(format!("Failed to create user: {}", e)))?;
+        let user_id = Uuid::new_v4();
+        let now = chrono::Utc::now();
 
-        let created_user = User {
-            id: result.get("id"),
-            name: result.get("name"),
-            email: result.get("email"),
-            age: result.get("age"),
-            password_hash: result.get("password_hash"),
-            role: result.get("role"),
-            created_at: result.get("created_at"),
-            updated_at: result.get("updated_at"),
-        };
+        let user = sqlx::query_as!(
+            User,
+            r#"
+            INSERT INTO users (id, name, email, age, password_hash, role, created_at, updated_at)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+            RETURNING *
+            "#,
+            user_id,
+            create_dto.name,
+            create_dto.email,
+            create_dto.age,
+            password_hash,
+            role,
+            now,
+            now
+        )
+        .fetch_one(&self.pool)
+        .await
+        .map_err(|e| {
+            if e.to_string().contains("unique constraint") {
+                AppError::Conflict("Email already exists".to_string())
+            } else {
+                AppError::Database(format!("Failed to create user: {}", e))
+            }
+        })?;
 
-        Ok(created_user)
+        log::info!("User created successfully with ID: {}", user.id);
+        Ok(user)
     }
 
-    async fn update_password(&self, user_id: uuid::Uuid, new_password_hash: String) -> Result<(), AppError> {
-        let _result = sqlx::query("UPDATE users SET password_hash = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2")
-            .bind(&new_password_hash)
-            .bind(user_id)
-            .execute(&self.pool)
-            .await
-            .map_err(|e| AppError::Database(format!("Failed to update password: {}", e)))?;
+    async fn update_password(&self, id: Uuid, new_password_hash: String) -> Result<(), AppError> {
+        let updated_at = chrono::Utc::now();
 
+        let result = sqlx::query!(
+            r#"
+            UPDATE users 
+            SET password_hash = $1, updated_at = $2
+            WHERE id = $3
+            "#,
+            new_password_hash,
+            updated_at,
+            id
+        )
+        .execute(&self.pool)
+        .await
+        .map_err(|e| AppError::Database(format!("Failed to update password: {}", e)))?;
+
+        if result.rows_affected() == 0 {
+            return Err(AppError::NotFound(format!("User with ID {} not found", id)));
+        }
+
+        log::info!("Password updated successfully for user: {}", id);
         Ok(())
     }
 }
-
