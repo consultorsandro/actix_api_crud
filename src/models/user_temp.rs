@@ -1,7 +1,7 @@
 // User model
-use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use sqlx::FromRow;
+use chrono::{DateTime, Utc};
 use uuid::Uuid;
 use validator::Validate;
 
@@ -42,16 +42,12 @@ impl From<User> for UserResponse {
 // DTO para criação de usuários com validações
 #[derive(Debug, Serialize, Deserialize, Validate)]
 pub struct CreateUserDto {
-    #[validate(length(
-        min = 2,
-        max = 100,
-        message = "Name must be between 2 and 100 characters"
-    ))]
+    #[validate(length(min = 2, max = 100, message = "Name must be between 2 and 100 characters"))]
     pub name: String,
-
+    
     #[validate(email(message = "Invalid email format"))]
     pub email: String,
-
+    
     #[validate(length(min = 6, message = "Password must be at least 6 characters"))]
     pub password: String,
 }
@@ -59,13 +55,9 @@ pub struct CreateUserDto {
 // DTO para atualização de usuários com validações
 #[derive(Debug, Serialize, Deserialize, Validate)]
 pub struct UpdateUserDto {
-    #[validate(length(
-        min = 2,
-        max = 100,
-        message = "Name must be between 2 and 100 characters"
-    ))]
+    #[validate(length(min = 2, max = 100, message = "Name must be between 2 and 100 characters"))]
     pub name: Option<String>,
-
+    
     #[validate(email(message = "Invalid email format"))]
     pub email: Option<String>,
 }
@@ -75,7 +67,7 @@ pub struct UpdateUserDto {
 pub struct LoginDto {
     #[validate(email(message = "Invalid email format"))]
     pub email: String,
-
+    
     #[validate(length(min = 1, message = "Password is required"))]
     pub password: String,
 }

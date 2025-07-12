@@ -16,10 +16,9 @@ pub struct DatabaseConfig {
 
 impl DatabaseConfig {
     pub fn from_env() -> Self {
-        let database_url = std::env::var("DATABASE_URL")
-            .unwrap_or_else(|_| {
-                "postgresql://postgres:postgres@localhost:5432/actix_crud_db".to_string()
-            });
+        let database_url = std::env::var("DATABASE_URL").unwrap_or_else(|_| {
+            "postgresql://postgres:postgres@localhost:5432/actix_crud_db".to_string()
+        });
 
         Self {
             url: database_url,
@@ -35,13 +34,13 @@ impl DatabaseConfig {
                 std::env::var("DB_CONNECT_TIMEOUT")
                     .ok()
                     .and_then(|val| val.parse().ok())
-                    .unwrap_or(30)
+                    .unwrap_or(30),
             ),
             idle_timeout: Duration::from_secs(
                 std::env::var("DB_IDLE_TIMEOUT")
                     .ok()
                     .and_then(|val| val.parse().ok())
-                    .unwrap_or(600)
+                    .unwrap_or(600),
             ),
         }
     }
@@ -89,13 +88,13 @@ pub async fn create_connection_pool(config: &DatabaseConfig) -> Result<PgPool, A
 
     // Teste a conexão
     test_connection(&pool).await?;
-    
+
     Ok(pool)
 }
 
 pub async fn run_migrations(pool: &PgPool) -> Result<(), AppError> {
     log::info!("Running database migrations...");
-    
+
     sqlx::migrate!("./migrations")
         .run(pool)
         .await
@@ -110,7 +109,7 @@ pub async fn run_migrations(pool: &PgPool) -> Result<(), AppError> {
 
 pub async fn test_connection(pool: &PgPool) -> Result<(), AppError> {
     log::info!("Testing database connection...");
-    
+
     sqlx::query("SELECT 1 as test")
         .fetch_one(pool)
         .await
@@ -118,7 +117,7 @@ pub async fn test_connection(pool: &PgPool) -> Result<(), AppError> {
             log::error!("Database connection test failed: {}", e);
             AppError::Database(format!("Database connection test failed: {}", e))
         })?;
-    
+
     log::info!("Database connection test successful");
     Ok(())
 }
@@ -126,7 +125,7 @@ pub async fn test_connection(pool: &PgPool) -> Result<(), AppError> {
 // Função para verificar se o banco de dados está disponível
 pub async fn check_database_availability(database_url: &str) -> Result<(), AppError> {
     log::info!("Checking database availability...");
-    
+
     let pool = PgPoolOptions::new()
         .max_connections(1)
         .acquire_timeout(Duration::from_secs(5))

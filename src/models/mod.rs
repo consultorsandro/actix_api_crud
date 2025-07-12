@@ -1,4 +1,8 @@
 // Models - Estruturas de dados e entidades do domínio
-// Aqui ficarão os structs que representam as entidades
+// Etapa 4: Modelos com validação e paginação
 
+pub mod pagination;
 pub mod user;
+
+pub use pagination::*;
+pub use user::*;

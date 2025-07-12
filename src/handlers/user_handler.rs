@@ -1,11 +1,15 @@
 // User handler - Controllers para endpoints HTTP relacionados a usuários
 
-use actix_web::{web, HttpResponse, Result};
+use actix_web::{HttpResponse, Result, web};
 use uuid::Uuid;
 
-use crate::models::user::{CreateUserDto, UpdateUserDto, UserResponse, LoginDto, AuthResponse};
-use crate::services::UserServiceTrait;
 use crate::errors::AppError;
+use crate::models::{
+    pagination::PaginationParams,
+    user::{CreateUserDto, UpdateUserDto, UserResponse},
+};
+use crate::services::UserServiceTrait;
+// use crate::middlewares::ValidatedJson; // Temporariamente comentado
 
 // Estrutura que encapsula as dependências dos handlers
 #[derive(Clone)]
@@ -24,11 +28,20 @@ where
         Self { user_service }
     }
 
-    // POST /users - Criar usuário
-    pub async fn create_user(&self, create_dto: web::Json<CreateUserDto>) -> Result<HttpResponse, AppError> {
-        let user = self.user_service.create_user(create_dto.into_inner()).await?;
+    // POST /users - Criar usuário com validação
+    pub async fn create_user(
+        &self,
+        create_dto: web::Json<CreateUserDto>,
+    ) -> Result<HttpResponse, AppError> {
+        log::info!("Creating new user with email: {}", create_dto.email);
+
+        let user = self
+            .user_service
+            .create_user(create_dto.into_inner())
+            .await?;
         let response = UserResponse::from(user);
-        
+
+        log::info!("User created successfully with ID: {}", response.id);
         Ok(HttpResponse::Created().json(serde_json::json!({
             "status": "success",
             "message": "User created successfully",
@@ -41,18 +54,21 @@ where
         let user_id = path.into_inner();
         let user = self.user_service.get_user_by_id(user_id).await?;
         let response = UserResponse::from(user);
-        
+
         Ok(HttpResponse::Ok().json(serde_json::json!({
             "status": "success",
             "data": response
         })))
     }
 
-    // GET /users - Listar todos os usuários
+    // GET /users - Listar todos os usuários (mantém compatibilidade)
     pub async fn get_all_users(&self) -> Result<HttpResponse, AppError> {
+        log::info!("Fetching all users (legacy endpoint)");
+
         let users = self.user_service.get_all_users().await?;
         let responses: Vec<UserResponse> = users.into_iter().map(UserResponse::from).collect();
-        
+
+        log::info!("Retrieved {} users", responses.len());
         Ok(HttpResponse::Ok().json(serde_json::json!({
             "status": "success",
             "data": responses,
@@ -60,16 +76,47 @@ where
         })))
     }
 
-    // PUT /users/{id} - Atualizar usuário
+    // GET /users/paginated - Listar usuários com paginação
+    pub async fn get_users_paginated(
+        &self,
+        params: web::Query<PaginationParams>,
+    ) -> Result<HttpResponse, AppError> {
+        log::info!("Fetching users with pagination: {:?}", params);
+
+        let paginated_response = self
+            .user_service
+            .get_users_paginated(params.into_inner())
+            .await?;
+
+        log::info!(
+            "Retrieved paginated users: page={}, total={}",
+            paginated_response.pagination.current_page,
+            paginated_response.pagination.total_items
+        );
+
+        Ok(HttpResponse::Ok().json(serde_json::json!({
+            "status": "success",
+            "data": paginated_response.data,
+            "pagination": paginated_response.pagination
+        })))
+    }
+
+    // PUT /users/{id} - Atualizar usuário com validação
     pub async fn update_user(
-        &self, 
-        path: web::Path<Uuid>, 
-        update_dto: web::Json<UpdateUserDto>
+        &self,
+        path: web::Path<Uuid>,
+        update_dto: web::Json<UpdateUserDto>,
     ) -> Result<HttpResponse, AppError> {
         let user_id = path.into_inner();
-        let user = self.user_service.update_user(user_id, update_dto.into_inner()).await?;
+        log::info!("Updating user with ID: {}", user_id);
+
+        let user = self
+            .user_service
+            .update_user(user_id, update_dto.into_inner())
+            .await?;
         let response = UserResponse::from(user);
-        
+
+        log::info!("User updated successfully with ID: {}", user_id);
         Ok(HttpResponse::Ok().json(serde_json::json!({
             "status": "success",
             "message": "User updated successfully",
@@ -81,7 +128,7 @@ where
     pub async fn delete_user(&self, path: web::Path<Uuid>) -> Result<HttpResponse, AppError> {
         let user_id = path.into_inner();
         let deleted = self.user_service.delete_user(user_id).await?;
-        
+
         if deleted {
             Ok(HttpResponse::Ok().json(serde_json::json!({
                 "status": "success",
@@ -95,25 +142,7 @@ where
         }
     }
 
-    // POST /auth/login - Autenticar usuário
-    pub async fn login(&self, login_dto: web::Json<LoginDto>) -> Result<HttpResponse, AppError> {
-        let login_data = login_dto.into_inner();
-        let user = self.user_service.authenticate_user(&login_data.email, &login_data.password).await?;
-        
-        // TODO: Gerar JWT token (será implementado na próxima etapa)
-        let token = "temporary_token".to_string(); // Placeholder
-        
-        let response = AuthResponse {
-            token,
-            user: UserResponse::from(user),
-        };
-        
-        Ok(HttpResponse::Ok().json(serde_json::json!({
-            "status": "success",
-            "message": "Login successful",
-            "data": response
-        })))
-    }
+    // Login será implementado na próxima etapa
 }
 
 // Funções helper para uso com Actix Web (sem dependências específicas)
