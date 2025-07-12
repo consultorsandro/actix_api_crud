@@ -1,8 +1,41 @@
-// User model - Entidade principal do sistema de usuários
+// User model - Ent// DTO para criação de usuários com validações
+#[// DTO para login com validações
+#[derive(Debug, Serialize, Deserialize, Validate)]
+pub struct LoginDto {
+    #[validate(email(message = "Invalid email format"))]
+    pub email: String,
+    
+    #[validate(length(min = 1, message = "Password is required"))]
+    pub password: String,
+}(Debug, Serialize, Deserialize, Validate)]
+pub struct CreateUserDto {
+    #[validate(length(min = 2, max = 100, message = "Name must be between 2 and 100 characters"))]
+    pub name: String,
+    
+    #[validate(email(message = "Invalid email format"))]
+    pub email: String,
+    
+    #[validate(length(min = 6, max = 100, message = "Password must be between 6 and 100 characters"))]
+    pub password: String,
+}
+
+// DTO para atualização de usuários com validações
+#[derive(Debug, Serialize, Deserialize, Validate)]
+pub struct UpdateUserDto {
+    #[validate(length(min = 2, max = 100, message = "Name must be between 2 and 100 characters"))]
+    pub name: Option<String>,
+    
+    #[validate(email(message = "Invalid email format"))]
+    pub email: Option<String>,
+    
+    #[validate(length(min = 6, max = 100, message = "Password must be between 6 and 100 characters"))]
+    pub password: Option<String>,
+} do sistema de usuários
 
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 use chrono::{DateTime, Utc};
+use validator::Validate;
 
 // Entidade User principal
 #[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]

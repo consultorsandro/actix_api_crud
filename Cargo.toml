@@ -21,4 +21,9 @@ log = "0.4"
 tracing = "0.1"
 tracing-subscriber = "0.3"
 async-trait = "0.1"
+# Novas dependências para Etapa 4 - CRUD completo
+validator = { version = "0.16", features = ["derive"] }
+regex = "1.10"
+anyhow = "1.0"
+futures-util = "0.3"
 

@@ -9,6 +9,8 @@ use crate::models::user::{User, CreateUserDto, UpdateUserDto};
 use crate::services::UserServiceTrait;
 use crate::repositories::UserRepositoryTrait;
 use crate::errors::AppError;
+use crate::pagination::{PaginationParams, PaginatedResponse}; // Importar tipos de paginação
+use crate::models::user::UserResponse; // Importar UserResponse
 
 // Estrutura concreta do serviço de usuários
 #[derive(Clone)]
@@ -153,5 +155,34 @@ where
         } else {
             Err(AppError::Auth("Invalid credentials".to_string()))
         }
+    }
+
+    async fn get_users_paginated(&self, mut params: PaginationParams) -> Result<PaginatedResponse<UserResponse>, AppError> {
+        // Validar parâmetros de paginação
+        params.validate();
+        
+        log::info!("Fetching users with pagination: page={}, limit={}", params.page, params.limit);
+        
+        let (users, total_count) = self.user_repository.find_all_paginated(&params).await?;
+        
+        let user_responses: Vec<UserResponse> = users
+            .into_iter()
+            .map(UserResponse::from)
+            .collect();
+        
+        let paginated_response = PaginatedResponse::new(
+            user_responses,
+            params.page,
+            params.limit,
+            total_count,
+        );
+        
+        log::info!("Retrieved {} users (page {} of {})", 
+            paginated_response.data.len(), 
+            paginated_response.pagination.current_page,
+            paginated_response.pagination.total_pages
+        );
+        
+        Ok(paginated_response)
     }
 }

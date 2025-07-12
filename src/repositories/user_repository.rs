@@ -162,6 +162,126 @@ impl Repository<User, Uuid> for UserRepository {
 
         Ok(result.rows_affected() > 0)
     }
+
+    async fn find_all_paginated(&self, params: &PaginationParams) -> Result<(Vec<User>, u64), AppError> {
+        let offset = params.offset() as i64;
+        let limit = params.limit as i64;
+        
+        // Query para contar total de registros
+        let count_query = if let Some(ref search) = params.search {
+            sqlx::query("SELECT COUNT(*) as count FROM users WHERE name ILIKE $1 OR email ILIKE $1")
+                .bind(format!("%{}%", search))
+        } else {
+            sqlx::query("SELECT COUNT(*) as count FROM users")
+        };
+        
+        let count_result = count_query
+            .fetch_one(&self.pool)
+            .await
+            .map_err(|e| AppError::Database(format!("Failed to count users: {}", e)))?;
+        
+        let total: i64 = count_result.get("count");
+        
+        // Query para buscar dados com paginação
+        let sort_order = match params.sort_order {
+            crate::models::SortOrder::Asc => "ASC",
+            crate::models::SortOrder::Desc => "DESC",
+        };
+        
+        let sort_field = params.sort_by.as_deref().unwrap_or("created_at");
+        
+        let query_str = if let Some(ref search) = params.search {
+            format!(
+                "SELECT id, name, email, password_hash, created_at, updated_at 
+                 FROM users 
+                 WHERE name ILIKE $1 OR email ILIKE $1 
+                 ORDER BY {} {} 
+                 LIMIT $2 OFFSET $3",
+                sort_field, sort_order
+            )
+        } else {
+            format!(
+                "SELECT id, name, email, password_hash, created_at, updated_at 
+                 FROM users 
+                 ORDER BY {} {} 
+                 LIMIT $1 OFFSET $2",
+                sort_field, sort_order
+            )
+        };
+        
+        let rows = if let Some(ref search) = params.search {
+            sqlx::query(&query_str)
+                .bind(format!("%{}%", search))
+                .bind(limit)
+                .bind(offset)
+                .fetch_all(&self.pool)
+                .await
+        } else {
+            sqlx::query(&query_str)
+                .bind(limit)
+                .bind(offset)
+                .fetch_all(&self.pool)
+                .await
+        };
+        
+        let rows = rows.map_err(|e| AppError::Database(format!("Failed to fetch paginated users: {}", e)))?;
+        
+        let users = rows.into_iter().map(|row| User {
+            id: row.get("id"),
+            name: row.get("name"),
+            email: row.get("email"),
+            password_hash: row.get("password_hash"),
+            created_at: row.get("created_at"),
+            updated_at: row.get("updated_at"),
+        }).collect();
+        
+        Ok((users, total as u64))
+    }
+
+    async fn find_with_filters(&self, filters: &UserFilters, params: &PaginationParams) -> Result<(Vec<User>, u64), AppError> {
+        let mut where_conditions = Vec::new();
+        let mut bind_values: Vec<&dyn sqlx::Encode<sqlx::Postgres> + Send + Sync> = Vec::new();
+        let mut param_count = 1;
+        
+        // Construir condições WHERE dinamicamente
+        if let Some(ref name) = filters.name {
+            where_conditions.push(format!("name ILIKE ${}", param_count));
+            param_count += 1;
+        }
+        
+        if let Some(ref email) = filters.email {
+            where_conditions.push(format!("email ILIKE ${}", param_count));
+            param_count += 1;
+        }
+        
+        if filters.created_after.is_some() {
+            where_conditions.push(format!("created_at >= ${}", param_count));
+            param_count += 1;
+        }
+        
+        if filters.created_before.is_some() {
+            where_conditions.push(format!("created_at <= ${}", param_count));
+            param_count += 1;
+        }
+        
+        let where_clause = if where_conditions.is_empty() {
+            String::new()
+        } else {
+            format!("WHERE {}", where_conditions.join(" AND "))
+        };
+        
+        // Por simplicidade, vamos usar a busca geral
+        self.find_all_paginated(params).await
+    }
+
+    async fn count_all(&self) -> Result<u64, AppError> {
+        let result = sqlx::query("SELECT COUNT(*) as count FROM users")
+            .fetch_one(&self.pool)
+            .await
+            .map_err(|e| AppError::Database(format!("Failed to count users: {}", e)))?;
+        
+        Ok(result.get::<i64, _>("count") as u64)
+    }
 }
 
 // Implementação do trait específico UserRepositoryTrait

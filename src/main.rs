@@ -98,7 +98,38 @@ async fn main() -> std::io::Result<()> {
             .app_data(web::Data::new(user_handler.clone()))
             // Rota de health check na raiz
             .service(index)
-            // Configura as rotas da API
+            // Rotas da API
+            .service(
+                web::scope("/api/v1")
+                    .service(
+                        web::scope("/users")
+                            .route("", web::post().to(|handler: web::Data<UserHandler<_>>, dto| async move {
+                                handler.create_user(dto).await
+                            }))
+                            .route("", web::get().to(|handler: web::Data<UserHandler<_>>| async move {
+                                handler.get_all_users().await
+                            }))
+                            .route("/paginated", web::get().to(|handler: web::Data<UserHandler<_>>, params| async move {
+                                handler.get_users_paginated(params).await
+                            }))
+                            .route("/{id}", web::get().to(|handler: web::Data<UserHandler<_>>, path| async move {
+                                handler.get_user_by_id(path).await
+                            }))
+                            .route("/{id}", web::put().to(|handler: web::Data<UserHandler<_>>, path, dto| async move {
+                                handler.update_user(path, dto).await
+                            }))
+                            .route("/{id}", web::delete().to(|handler: web::Data<UserHandler<_>>, path| async move {
+                                handler.delete_user(path).await
+                            }))
+                    )
+                    .service(
+                        web::scope("/auth")
+                            .route("/login", web::post().to(|handler: web::Data<UserHandler<_>>, dto| async move {
+                                handler.login(dto).await
+                            }))
+                    )
+            )
+            // Configura as rotas básicas
             .configure(routes::init_routes)
     })
     .bind(&addr)?
