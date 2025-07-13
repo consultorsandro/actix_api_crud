@@ -432,9 +432,9 @@ Este projeto está licenciado sob a **MIT License** - veja o arquivo [LICENSE](L
 
 **Sandro Reis** - *Desenvolvedor*
 
-- 📧 Email: [sandro@exemplo.com](mailto:sandro@exemplo.com)
+- 📧 Email: [sandro@exemplo.com](mailto:consultorsandro@hotmail.com)
 - 🐱 GitHub: [@consultorsandro](https://github.com/consultorsandro)
-- 💼 LinkedIn: [Sandro Ramos](https://linkedin.com/in/sandroramos)
+- 💼 LinkedIn: [Sandro Ramos](https://linkedin.com/in/sandro-reis-veterano)
 
 ---
 
