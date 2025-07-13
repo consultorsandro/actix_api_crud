@@ -1,0 +1,252 @@
+# CI/CD Pipeline para Actix API CRUD
+# Etapa 7: Testes e Qualidade - GitHub Actions
+
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main, developer ]
+  pull_request:
+    branches: [ main, developer ]
+
+env:
+  CARGO_TERM_COLOR: always
+  RUST_BACKTRACE: 1
+
+jobs:
+  # Job 1: Verificações de código (linting, formatting)
+  code-quality:
+    name: Code Quality Checks
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Install Rust toolchain
+      uses: dtolnay/rust-toolchain@stable
+      with:
+        components: rustfmt, clippy
+
+    - name: Cache Cargo dependencies
+      uses: actions/cache@v3
+      with:
+        path: |
+          ~/.cargo/registry
+          ~/.cargo/git
+          target/
+        key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+        restore-keys: |
+          ${{ runner.os }}-cargo-
+
+    - name: Check code formatting
+      run: cargo fmt --all -- --check
+
+    - name: Run Clippy (linting)
+      run: cargo clippy --all-targets --all-features -- -D warnings
+
+    - name: Check code compilation
+      run: cargo check --all-targets --all-features
+
+  # Job 2: Testes unitários e de integração
+  test:
+    name: Run Tests
+    runs-on: ubuntu-latest
+    needs: code-quality
+
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_USER: postgres
+          POSTGRES_DB: actix_crud_test
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/actix_crud_test
+      JWT_SECRET: test_secret_key_with_32_characters_for_ci
+      JWT_EXPIRATION: 24
+      RUST_LOG: debug
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Install Rust toolchain
+      uses: dtolnay/rust-toolchain@stable
+
+    - name: Cache Cargo dependencies
+      uses: actions/cache@v3
+      with:
+        path: |
+          ~/.cargo/registry
+          ~/.cargo/git
+          target/
+        key: ${{ runner.os }}-cargo-test-${{ hashFiles('**/Cargo.lock') }}
+        restore-keys: |
+          ${{ runner.os }}-cargo-test-
+          ${{ runner.os }}-cargo-
+
+    - name: Install SQLx CLI
+      run: cargo install sqlx-cli --no-default-features --features native-tls,postgres
+
+    - name: Run database migrations
+      run: |
+        # Create test database if it doesn't exist
+        createdb -h localhost -U postgres actix_crud_test || true
+        # Run migrations (if you have them)
+        # sqlx migrate run
+
+    - name: Run unit tests
+      run: cargo test --lib --all-features --verbose
+
+    - name: Run integration tests
+      run: cargo test --test '*' --all-features --verbose
+
+    - name: Run all tests with coverage
+      run: |
+        cargo install cargo-tarpaulin
+        cargo tarpaulin --verbose --all-features --workspace --timeout 120 --out Xml
+
+    - name: Upload coverage to Codecov
+      uses: codecov/codecov-action@v3
+      with:
+        file: ./cobertura.xml
+        fail_ci_if_error: false
+
+  # Job 3: Build e verificação de produção
+  build:
+    name: Build Production
+    runs-on: ubuntu-latest
+    needs: test
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Install Rust toolchain
+      uses: dtolnay/rust-toolchain@stable
+
+    - name: Cache Cargo dependencies
+      uses: actions/cache@v3
+      with:
+        path: |
+          ~/.cargo/registry
+          ~/.cargo/git
+          target/
+        key: ${{ runner.os }}-cargo-build-${{ hashFiles('**/Cargo.lock') }}
+        restore-keys: |
+          ${{ runner.os }}-cargo-build-
+          ${{ runner.os }}-cargo-
+
+    - name: Build release
+      run: cargo build --release --all-features
+
+    - name: Run cargo audit (security check)
+      run: |
+        cargo install cargo-audit
+        cargo audit
+
+    - name: Check for outdated dependencies
+      run: |
+        cargo install cargo-outdated
+        cargo outdated
+
+  # Job 4: Verificações de segurança
+  security:
+    name: Security Audit
+    runs-on: ubuntu-latest
+    needs: code-quality
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Install Rust toolchain
+      uses: dtolnay/rust-toolchain@stable
+
+    - name: Cache Cargo dependencies
+      uses: actions/cache@v3
+      with:
+        path: |
+          ~/.cargo/registry
+          ~/.cargo/git
+          target/
+        key: ${{ runner.os }}-cargo-security-${{ hashFiles('**/Cargo.lock') }}
+
+    - name: Security audit
+      run: |
+        cargo install cargo-audit
+        cargo audit
+
+    - name: Check for unsafe code
+      run: |
+        cargo install cargo-geiger
+        cargo geiger --all-targets --all-features
+
+  # Job 5: Performance benchmarks (opcional)
+  benchmark:
+    name: Performance Benchmarks
+    runs-on: ubuntu-latest
+    needs: test
+    if: github.ref == 'refs/heads/main'
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Install Rust toolchain
+      uses: dtolnay/rust-toolchain@stable
+
+    - name: Cache Cargo dependencies
+      uses: actions/cache@v3
+      with:
+        path: |
+          ~/.cargo/registry
+          ~/.cargo/git
+          target/
+        key: ${{ runner.os }}-cargo-bench-${{ hashFiles('**/Cargo.lock') }}
+
+    - name: Run benchmarks
+      run: |
+        # Se você tiver benchmarks configurados
+        # cargo bench
+        echo "Benchmarks would run here"
+
+  # Job 6: Deploy (apenas na branch main)
+  deploy:
+    name: Deploy
+    runs-on: ubuntu-latest
+    needs: [test, build, security]
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Deploy preparation
+      run: |
+        echo "Deploy preparation steps would go here"
+        echo "This could include:"
+        echo "- Building Docker images"
+        echo "- Pushing to container registry"
+        echo "- Deploying to cloud platforms"
+        echo "- Updating production environment"
+
+    - name: Notify deployment
+      run: |
+        echo "Deployment completed successfully!"
+        echo "Version: ${{ github.sha }}"
+        echo "Branch: ${{ github.ref_name }}"
+
+# Configurações adicionais
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true

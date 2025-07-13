@@ -127,3 +127,184 @@ impl UserFilters {
             || self.created_before.is_some()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use validator::Validate;
+
+    #[test]
+    fn test_pagination_params_defaults() {
+        let params = PaginationParams {
+            page: default_page(),
+            limit: default_limit(),
+            search: None,
+            sort_by: None,
+            sort_order: default_sort_order(),
+        };
+
+        assert_eq!(params.page, 1);
+        assert_eq!(params.limit, 20);
+        assert!(matches!(params.sort_order, SortOrder::Desc));
+    }
+
+    #[test]
+    fn test_pagination_params_validation_valid() {
+        let params = PaginationParams {
+            page: 1,
+            limit: 10,
+            search: Some("test".to_string()),
+            sort_by: Some("name".to_string()),
+            sort_order: SortOrder::Asc,
+        };
+
+        assert!(params.validate().is_ok());
+    }
+
+    #[test]
+    fn test_pagination_params_validation_invalid_page() {
+        let params = PaginationParams {
+            page: 0, // Invalid
+            limit: 10,
+            search: None,
+            sort_by: None,
+            sort_order: SortOrder::Asc,
+        };
+
+        let validation_result = params.validate();
+        assert!(validation_result.is_err());
+
+        let errors = validation_result.unwrap_err();
+        assert!(errors.field_errors().contains_key("page"));
+    }
+
+    #[test]
+    fn test_pagination_params_validation_invalid_limit() {
+        let params = PaginationParams {
+            page: 1,
+            limit: 101, // Too high
+            search: None,
+            sort_by: None,
+            sort_order: SortOrder::Asc,
+        };
+
+        let validation_result = params.validate();
+        assert!(validation_result.is_err());
+
+        let errors = validation_result.unwrap_err();
+        assert!(errors.field_errors().contains_key("limit"));
+    }
+
+    #[test]
+    fn test_pagination_params_offset_calculation() {
+        let params = PaginationParams {
+            page: 3,
+            limit: 10,
+            search: None,
+            sort_by: None,
+            sort_order: SortOrder::Asc,
+        };
+
+        assert_eq!(params.offset(), 20); // (3-1) * 10 = 20
+    }
+
+    #[test]
+    fn test_pagination_params_validate_method() {
+        let mut params = PaginationParams {
+            page: 0,  // Will be corrected to 1
+            limit: 0, // Will be corrected to default
+            search: None,
+            sort_by: None,
+            sort_order: SortOrder::Asc,
+        };
+
+        // Use o método personalizado de validação que modifica os valores
+        PaginationParams::validate(&mut params);
+
+        assert_eq!(params.page, 1);
+        assert_eq!(params.limit, default_limit());
+    }
+
+    #[test]
+    fn test_pagination_params_validate_limit_too_high() {
+        let mut params = PaginationParams {
+            page: 1,
+            limit: 150, // Will be corrected to 100
+            search: None,
+            sort_by: None,
+            sort_order: SortOrder::Asc,
+        };
+
+        // Use o método personalizado de validação que modifica os valores
+        PaginationParams::validate(&mut params);
+
+        assert_eq!(params.limit, 100);
+    }
+
+    #[test]
+    fn test_paginated_response_creation() {
+        let data = vec!["item1", "item2", "item3"];
+        let response = PaginatedResponse::new(data.clone(), 1, 10, 25);
+
+        assert_eq!(response.data, data);
+        assert_eq!(response.pagination.current_page, 1);
+        assert_eq!(response.pagination.page_size, 10);
+        assert_eq!(response.pagination.total_items, 25);
+        assert_eq!(response.pagination.total_pages, 3); // ceil(25/10) = 3
+        assert!(!response.pagination.has_previous);
+        assert!(response.pagination.has_next);
+    }
+
+    #[test]
+    fn test_paginated_response_last_page() {
+        let data = vec!["item1"];
+        let response = PaginatedResponse::new(data, 3, 10, 25);
+
+        assert_eq!(response.pagination.current_page, 3);
+        assert_eq!(response.pagination.total_pages, 3);
+        assert!(response.pagination.has_previous);
+        assert!(!response.pagination.has_next);
+    }
+
+    #[test]
+    fn test_paginated_response_empty_data() {
+        let data: Vec<String> = vec![];
+        let response = PaginatedResponse::new(data, 1, 10, 0);
+
+        assert_eq!(response.pagination.current_page, 1);
+        assert_eq!(response.pagination.total_pages, 1);
+        assert_eq!(response.pagination.total_items, 0);
+        assert!(!response.pagination.has_previous);
+        assert!(!response.pagination.has_next);
+    }
+
+    #[test]
+    fn test_sort_order_default() {
+        let default_order = SortOrder::default();
+        assert!(matches!(default_order, SortOrder::Desc));
+    }
+
+    #[test]
+    fn test_user_filters_has_filters_true() {
+        let filters = UserFilters {
+            name: Some("John".to_string()),
+            email: None,
+            created_after: None,
+            created_before: None,
+        };
+
+        assert!(filters.has_filters());
+    }
+
+    #[test]
+    fn test_user_filters_has_filters_false() {
+        let filters = UserFilters {
+            name: None,
+            email: None,
+            created_after: None,
+            created_before: None,
+        };
+
+        assert!(!filters.has_filters());
+    }
+}

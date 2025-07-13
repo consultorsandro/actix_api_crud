@@ -4,7 +4,7 @@ use log::{error, info};
 use crate::errors::AppError;
 use crate::middlewares::validation::ValidatedJson;
 use crate::models::{
-    pagination::PaginationParams,
+    pagination::{PaginatedResponse, PaginationParams, SortOrder},
     user::{CreateUserDto, UpdateUserDto, UserResponse},
 };
 use crate::services::UserServiceTrait;

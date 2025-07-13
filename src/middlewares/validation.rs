@@ -1,14 +1,12 @@
 // src/middlewares/validation.rs
 // Etapa 4 Aperfeiçoamento: ValidatedJson middleware para validação automática
 
-use actix_web::{
-    dev::Payload, web, Error, FromRequest, HttpRequest,
-};
+use crate::errors::AppError;
+use actix_web::{Error, FromRequest, HttpRequest, dev::Payload, web};
 use futures::future::{LocalBoxFuture, ready};
 use serde::de::DeserializeOwned;
 use std::ops::{Deref, DerefMut};
 use validator::Validate;
-use crate::errors::AppError;
 
 /// Wrapper para JSON validado automaticamente
 /// Extrai, deserializa e valida JSON em uma única operação
@@ -45,7 +43,7 @@ where
 
     fn from_request(req: &HttpRequest, payload: &mut Payload) -> Self::Future {
         let json_future = web::Json::<T>::from_request(req, payload);
-        
+
         Box::pin(async move {
             match json_future.await {
                 Ok(json) => {
@@ -55,11 +53,9 @@ where
                             .field_errors()
                             .iter()
                             .flat_map(|(field, errors)| {
-                                errors.iter().map(move |error| {
-                                    match &error.message {
-                                        Some(msg) => format!("{}: {}", field, msg),
-                                        None => format!("{}: Validation failed", field),
-                                    }
+                                errors.iter().map(move |error| match &error.message {
+                                    Some(msg) => format!("{}: {}", field, msg),
+                                    None => format!("{}: Validation failed", field),
                                 })
                             })
                             .collect();
@@ -69,7 +65,10 @@ where
                         return Err(AppError::Validation(error_msg).into());
                     }
 
-                    log::debug!("Validation successful for type: {}", std::any::type_name::<T>());
+                    log::debug!(
+                        "Validation successful for type: {}",
+                        std::any::type_name::<T>()
+                    );
                     Ok(ValidatedJson(json.into_inner()))
                 }
                 Err(e) => {

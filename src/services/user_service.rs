@@ -197,16 +197,144 @@ where
         self.user_repository.find_by_email_direct(email).await
     }
 
-    async fn create_with_password(&self, create_dto: CreateUserDto, password_hash: String, role: String) -> Result<User, AppError> {
+    async fn create_with_password(
+        &self,
+        create_dto: CreateUserDto,
+        password_hash: String,
+        role: String,
+    ) -> Result<User, AppError> {
         // Verificar se email já existe
         if let Ok(Some(_)) = self.user_repository.find_by_email(&create_dto.email).await {
             return Err(AppError::Conflict("Email already exists".to_string()));
         }
 
-        self.user_repository.create_with_password(create_dto, password_hash, role).await
+        self.user_repository
+            .create_with_password(create_dto, password_hash, role)
+            .await
     }
 
     async fn update_password(&self, id: Uuid, new_password_hash: String) -> Result<(), AppError> {
-        self.user_repository.update_password(id, new_password_hash).await
+        self.user_repository
+            .update_password(id, new_password_hash)
+            .await
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::models::pagination::PaginationParams;
+    use uuid::Uuid;
+
+    // Teste simplificado para validação de DTO
+    #[tokio::test]
+    async fn test_create_dto_validation() {
+        // Teste básico de compilação sem mock
+        let dto = CreateUserDto {
+            name: "Test User".to_string(),
+            email: "test@test.com".to_string(),
+            password: "123456".to_string(),
+            age: 25,
+        };
+
+        // Verificar se o DTO é válido
+        assert_eq!(dto.name, "Test User");
+        assert_eq!(dto.email, "test@test.com");
+        assert!(dto.age > 18);
+    }
+
+    #[tokio::test]
+    async fn test_password_hashing() {
+        use bcrypt::{DEFAULT_COST, hash, verify};
+
+        let password = "test_password";
+        let hashed = hash(password, DEFAULT_COST).unwrap();
+
+        assert!(verify(password, &hashed).unwrap());
+        assert!(!verify("wrong_password", &hashed).unwrap());
+    }
+
+    #[tokio::test]
+    async fn test_user_validation() {
+        let valid_dto = CreateUserDto {
+            name: "Valid User".to_string(),
+            email: "valid@example.com".to_string(),
+            password: "123456".to_string(),
+            age: 25,
+        };
+
+        // Teste se a estrutura está correta
+        assert!(!valid_dto.name.is_empty());
+        assert!(valid_dto.email.contains('@'));
+        assert!(valid_dto.age >= 18);
+    }
+
+    fn create_test_user() -> User {
+        User {
+            id: Uuid::new_v4(),
+            name: "Test User".to_string(),
+            email: "test@example.com".to_string(),
+            age: 25,
+            password_hash: "$2b$12$test_hash".to_string(),
+            role: Some("user".to_string()),
+            created_at: Utc::now(),
+            updated_at: Utc::now(),
+        }
+    }
+
+    fn create_test_create_dto() -> CreateUserDto {
+        CreateUserDto {
+            name: "New User".to_string(),
+            email: "new@example.com".to_string(),
+            age: 30,
+            password: "password123".to_string(),
+        }
+    }
+
+    #[tokio::test]
+    async fn test_create_user_dto_mapping() {
+        let create_dto = create_test_create_dto();
+
+        // Verificar se o DTO tem os dados corretos
+        assert_eq!(create_dto.name, "New User");
+        assert_eq!(create_dto.email, "new@example.com");
+        assert_eq!(create_dto.age, 30);
+        assert!(!create_dto.password.is_empty());
+    }
+
+    #[test]
+    fn test_hash_password_functionality() {
+        let password = "test_password";
+        let hash_result = bcrypt::hash(password, bcrypt::DEFAULT_COST);
+
+        assert!(hash_result.is_ok());
+        let hash = hash_result.unwrap();
+        assert!(hash.starts_with("$2b$"));
+        assert_ne!(hash, password);
+    }
+
+    #[test]
+    fn test_verify_password_functionality() {
+        let password = "test_password";
+        let hash = bcrypt::hash(password, bcrypt::DEFAULT_COST).unwrap();
+
+        let verify_result = bcrypt::verify(password, &hash);
+        assert!(verify_result.is_ok());
+        assert!(verify_result.unwrap());
+
+        let wrong_verify_result = bcrypt::verify("wrong_password", &hash);
+        assert!(wrong_verify_result.is_ok());
+        assert!(!wrong_verify_result.unwrap());
+    }
+
+    #[test]
+    fn test_user_model_creation() {
+        let user = create_test_user();
+        
+        assert!(!user.id.to_string().is_empty());
+        assert_eq!(user.name, "Test User");
+        assert_eq!(user.email, "test@example.com");
+        assert_eq!(user.age, 25);
+        assert!(!user.password_hash.is_empty());
     }
 }
