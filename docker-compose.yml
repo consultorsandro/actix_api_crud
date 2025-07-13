@@ -4,6 +4,36 @@
 version: '3.8'
 
 services:
+  # Aplicação Rust/Actix-Web
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: runtime
+    container_name: actix_api_crud
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      - DATABASE_URL=postgresql://postgres:postgres123@postgres:5432/actix_crud
+      - JWT_SECRET=${JWT_SECRET:-your-jwt-secret-key}
+      - JWT_REFRESH_SECRET=${JWT_REFRESH_SECRET:-your-refresh-secret-key}
+      - RUST_LOG=info
+      - ENVIRONMENT=production
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - actix_network
+    volumes:
+      - ./logs:/app/logs
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
   # PostgreSQL Database
   postgres:
     image: postgres:15-alpine
@@ -61,8 +91,24 @@ services:
     networks:
       - actix-network
 
+  # Redis para cache (opcional)
+  redis:
+    image: redis:7-alpine
+    container_name: redis_actix
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - actix_network
+    command: redis-server --appendonly yes
+
 volumes:
   postgres_data:
+    driver: local
+  redis_data:
+    driver: local
 
 networks:
   actix-network:

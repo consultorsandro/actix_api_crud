@@ -54,3 +54,38 @@ tempfile = "3.8"
 rstest = "0.18"
 once_cell = "1.19"
 
+# Features para diferentes ambientes
+[features]
+default = ["production"]
+production = []
+development = ["console-logging"]
+console-logging = []
+
+# Configurações otimizadas para produção
+[profile.release]
+# Otimização máxima
+opt-level = 3
+# Permite mais tempo de compilação para melhor otimização
+codegen-units = 1
+# Link-time optimization
+lto = true
+# Remove símbolos de debug no release
+debug = false
+# Panic = abort reduz o tamanho do binário
+panic = "abort"
+# Strip símbolos para reduzir tamanho
+strip = true
+# Overflow checks em release (opcional, pode impactar performance)
+overflow-checks = false
+
+[profile.dev]
+# Para desenvolvimento mais rápido
+opt-level = 0
+debug = true
+incremental = true
+
+[profile.test]
+# Para testes otimizados
+opt-level = 1
+debug = true
+
