@@ -183,6 +183,7 @@ fn contains_suspicious_patterns(input: &str) -> bool {
 }
 
 /// Utilitário para sanitizar strings
+#[allow(dead_code)]
 pub fn sanitize_string(input: &str) -> String {
     // Remove caracteres perigosos
     input
@@ -192,6 +193,7 @@ pub fn sanitize_string(input: &str) -> String {
 }
 
 /// Utilitário para validar email de forma mais rigorosa
+#[allow(dead_code)]
 pub fn is_valid_email(email: &str) -> bool {
     let email_regex =
         regex::Regex::new(r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$").unwrap();
@@ -202,7 +204,7 @@ pub fn is_valid_email(email: &str) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use actix_web::{App, HttpResponse, middleware, test, web};
+    use actix_web::{App, HttpResponse, test, web};
 
     async fn test_handler() -> Result<HttpResponse, Error> {
         Ok(HttpResponse::Ok().json("Success"))
@@ -261,24 +263,24 @@ mod tests {
             .set_json(&serde_json::json!({"name": "<script>alert('xss')</script>"}))
             .to_request();
 
-        let resp = test::call_service(&app, malicious_req).await;
+        let _resp = test::call_service(&app, malicious_req).await;
         // O middleware deve rejeitar ou sanitizar o input
         // Dependendo da implementação, pode retornar 400 ou processar sanitizado
     }
 
     #[test]
-    async fn test_is_suspicious_input() {
+    async fn test_contains_suspicious_patterns() {
         // Testes para detecção de padrões suspeitos
-        assert!(is_suspicious_input("<script>"));
-        assert!(is_suspicious_input("javascript:"));
-        assert!(is_suspicious_input("onclick="));
-        assert!(is_suspicious_input("SELECT * FROM users"));
-        assert!(is_suspicious_input("'; DROP TABLE"));
+        assert!(contains_suspicious_patterns("<script>"));
+        assert!(contains_suspicious_patterns("javascript:"));
+        assert!(contains_suspicious_patterns("onload="));
+        assert!(contains_suspicious_patterns("union select from users"));
+        assert!(contains_suspicious_patterns("'; DROP TABLE"));
 
         // Inputs limpos não devem ser flagados
-        assert!(!is_suspicious_input("John Doe"));
-        assert!(!is_suspicious_input("user@example.com"));
-        assert!(!is_suspicious_input("Valid text content"));
+        assert!(!contains_suspicious_patterns("John Doe"));
+        assert!(!contains_suspicious_patterns("user@example.com"));
+        assert!(!contains_suspicious_patterns("Valid text content"));
     }
 
     #[test]

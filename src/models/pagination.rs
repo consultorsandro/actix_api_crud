@@ -218,7 +218,8 @@ mod tests {
             sort_order: SortOrder::Asc,
         };
 
-        params.validate();
+        // Use o método personalizado de validação que modifica os valores
+        PaginationParams::validate(&mut params);
 
         assert_eq!(params.page, 1);
         assert_eq!(params.limit, default_limit());
@@ -234,7 +235,8 @@ mod tests {
             sort_order: SortOrder::Asc,
         };
 
-        params.validate();
+        // Use o método personalizado de validação que modifica os valores
+        PaginationParams::validate(&mut params);
 
         assert_eq!(params.limit, 100);
     }

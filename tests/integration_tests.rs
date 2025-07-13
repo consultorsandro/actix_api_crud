@@ -262,7 +262,7 @@ async fn test_uuid_path_params() {
 async fn test_content_type_handling() {
     let app = test::init_service(App::new().route(
         "/upload",
-        web::post().to(|payload: web::Payload| async move {
+        web::post().to(|_payload: web::Payload| async move {
             actix_web::HttpResponse::Ok().json(json!({"status": "received"}))
         }),
     ))

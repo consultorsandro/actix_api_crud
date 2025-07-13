@@ -166,7 +166,7 @@ async fn test_jwt_authentication_flow() {
     // Test accessing protected resource without token
     let unauth_req = test::TestRequest::get().uri("/protected").to_request();
 
-    let unauth_resp = test::call_service(&app, unauth_req).await;
+    let _unauth_resp = test::call_service(&app, unauth_req).await;
     // Note: This would normally return 401, but our test setup doesn't include auth middleware
     // In a real scenario, you'd set up the full auth middleware
 
